@@ -1,0 +1,10 @@
+{
+  "files": [
+    "resources/views/panel/layout.blade.php",
+    "resources/views/ui/layout.blade.php",
+    "resources/views/welcome.blade.php"
+  ],
+  "insertBefore": "</body>",
+  "commentSyntax": "html",
+  "cspChecked": true
+}

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"Notifiable\\\\|use App\\\\\\\\\\\\\\\\Models\\\\|class User\" \"D:/SKRIPSI/laravel/app/Models/User.php\")",
+      "Bash(php artisan *)"
+    ]
+  }
+}

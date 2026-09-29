@@ -1,0 +1,225 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+<title id="title">SIMKM Use Case Diagram</title>
+<desc id="desc">UML use case diagram for Sistem Informasi Manajemen Kinerja Mitra.</desc>
+<defs>
+<filter id="shadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#111827" flood-opacity="0.14"/></filter>
+<marker id="arrowInclude" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/></marker>
+<marker id="arrowExtend" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/></marker>
+</defs>
+<rect width="1600" height="1000" fill="#ffffff"/>
+<rect x="300" y="60" width="1000" height="805" rx="0" fill="#ffffff" stroke="#1f2937" stroke-width="3" filter="url(#shadow)"/>
+<rect x="300" y="60" width="1000" height="58" fill="#f8fafc" stroke="#1f2937" stroke-width="0"/>
+<line x1="300" y1="118" x2="1300" y2="118" stroke="#1f2937" stroke-width="2"/>
+<text x="800" y="90.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#1f2937">
+<tspan x="800" dy="0.0">SIMKM - Sistem Informasi Manajemen Kinerja Mitra</tspan>
+</text>
+<g stroke="#2563eb" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="145" cy="158" r="20"/>
+<path d="M 145 178 L 145 238"/>
+<path d="M 103 205 L 145 218 L 187 205"/>
+<path d="M 145 238 L 109 292"/>
+<path d="M 145 238 L 181 292"/>
+</g>
+<text x="145" y="324.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#2563eb">
+<tspan x="145" dy="0.0">Admin</tspan>
+</text>
+<g stroke="#16a34a" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="145" cy="588" r="20"/>
+<path d="M 145 608 L 145 668"/>
+<path d="M 103 635 L 145 648 L 187 635"/>
+<path d="M 145 668 L 109 722"/>
+<path d="M 145 668 L 181 722"/>
+</g>
+<text x="145" y="754.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#16a34a">
+<tspan x="145" dy="0.0">Pegawai BPS</tspan>
+</text>
+<g stroke="#f97316" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="1455" cy="258" r="20"/>
+<path d="M 1455 278 L 1455 338"/>
+<path d="M 1413 305 L 1455 318 L 1497 305"/>
+<path d="M 1455 338 L 1419 392"/>
+<path d="M 1455 338 L 1491 392"/>
+</g>
+<text x="1455" y="424.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#f97316">
+<tspan x="1455" dy="0.0">Mitra</tspan>
+</text>
+<g stroke="#7c3aed" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="1455" cy="628" r="20"/>
+<path d="M 1455 648 L 1455 708"/>
+<path d="M 1413 675 L 1455 688 L 1497 675"/>
+<path d="M 1455 708 L 1419 762"/>
+<path d="M 1455 708 L 1491 762"/>
+</g>
+<text x="1455" y="794.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#7c3aed">
+<tspan x="1455" dy="0.0">Kepala BPS</tspan>
+</text>
+<ellipse cx="555" cy="170" rx="170" ry="38" fill="#eff6ff" stroke="#2563eb" stroke-width="2.2"/>
+<text x="555" y="170.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="555" dy="0.0">Kelola Akun Pengguna</tspan>
+</text>
+<ellipse cx="555" cy="240" rx="170" ry="38" fill="#eff6ff" stroke="#2563eb" stroke-width="2.2"/>
+<text x="555" y="240.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="555" dy="0.0">Kelola Tim &amp; Anggota</tspan>
+</text>
+<ellipse cx="555" cy="310" rx="190" ry="44" fill="#eff6ff" stroke="#2563eb" stroke-width="2.2"/>
+<text x="555" y="301.7" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="555" dy="0.0">Kelola Wilayah</tspan>
+<tspan x="555" dy="16.5">(Kecamatan &amp; Kelurahan)</tspan>
+</text>
+<ellipse cx="555" cy="386" rx="170" ry="38" fill="#eff6ff" stroke="#2563eb" stroke-width="2.2"/>
+<text x="555" y="386.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="555" dy="0.0">Pantau Log Aktivitas</tspan>
+</text>
+<ellipse cx="555" cy="505" rx="170" ry="38" fill="#f0fdf4" stroke="#16a34a" stroke-width="2.2"/>
+<text x="555" y="505.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="555" dy="0.0">Buat &amp; Kelola Survei</tspan>
+</text>
+<ellipse cx="555" cy="575" rx="170" ry="38" fill="#f0fdf4" stroke="#16a34a" stroke-width="2.2"/>
+<text x="555" y="575.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="555" dy="0.0">Tambah Variabel Survei</tspan>
+</text>
+<ellipse cx="555" cy="645" rx="180" ry="38" fill="#f0fdf4" stroke="#16a34a" stroke-width="2.2"/>
+<text x="555" y="645.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="555" dy="0.0">Tugaskan Mitra ke Survei</tspan>
+</text>
+<ellipse cx="555" cy="715" rx="170" ry="38" fill="#f0fdf4" stroke="#16a34a" stroke-width="2.2"/>
+<text x="555" y="715.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="555" dy="0.0">Pantau Progres Mitra</tspan>
+</text>
+<ellipse cx="555" cy="785" rx="170" ry="38" fill="#f0fdf4" stroke="#16a34a" stroke-width="2.2"/>
+<text x="555" y="785.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="555" dy="0.0">Validasi Entri Data</tspan>
+</text>
+<ellipse cx="1045" cy="155" rx="130" ry="34" fill="#fff7ed" stroke="#f97316" stroke-width="2.2"/>
+<text x="1045" y="155.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="1045" dy="0.0">Login</tspan>
+</text>
+<ellipse cx="1045" cy="230" rx="180" ry="38" fill="#fff7ed" stroke="#f97316" stroke-width="2.2"/>
+<text x="1045" y="230.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="1045" dy="0.0">Lihat Penugasan Survei</tspan>
+</text>
+<ellipse cx="1045" cy="305" rx="160" ry="38" fill="#fff7ed" stroke="#f97316" stroke-width="2.2"/>
+<text x="1045" y="305.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="1045" dy="0.0">Input Data Entri</tspan>
+</text>
+<ellipse cx="1045" cy="380" rx="160" ry="38" fill="#fff7ed" stroke="#f97316" stroke-width="2.2"/>
+<text x="1045" y="380.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="1045" dy="0.0">Unggah Foto Bukti</tspan>
+</text>
+<ellipse cx="1045" cy="455" rx="180" ry="38" fill="#fff7ed" stroke="#f97316" stroke-width="2.2"/>
+<text x="1045" y="455.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="1045" dy="0.0">Pantau Progres Pribadi</tspan>
+</text>
+<ellipse cx="1045" cy="585" rx="190" ry="38" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.2"/>
+<text x="1045" y="585.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="1045" dy="0.0">Lihat Dashboard Ringkasan</tspan>
+</text>
+<ellipse cx="1045" cy="655" rx="210" ry="38" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.2"/>
+<text x="1045" y="655.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="1045" dy="0.0">Lihat Peringkat Kinerja Mitra</tspan>
+</text>
+<ellipse cx="1045" cy="725" rx="215" ry="38" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.2"/>
+<text x="1045" y="725.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="1045" dy="0.0">Pantau Sebaran Entri Wilayah</tspan>
+</text>
+<ellipse cx="1045" cy="795" rx="225" ry="38" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2.2"/>
+<text x="1045" y="795.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#111827">
+<tspan x="1045" dy="0.0">Ekspor Laporan Kinerja ke Excel</tspan>
+</text>
+<line x1="190" y1="220" x2="385" y2="170" stroke="#2563eb" stroke-width="1.8" opacity="0.82"/>
+<line x1="190" y1="220" x2="385" y2="240" stroke="#2563eb" stroke-width="1.8" opacity="0.82"/>
+<line x1="190" y1="220" x2="365" y2="310" stroke="#2563eb" stroke-width="1.8" opacity="0.82"/>
+<line x1="190" y1="220" x2="385" y2="386" stroke="#2563eb" stroke-width="1.8" opacity="0.82"/>
+<line x1="190" y1="650" x2="385" y2="505" stroke="#16a34a" stroke-width="1.8" opacity="0.82"/>
+<line x1="190" y1="650" x2="385" y2="575" stroke="#16a34a" stroke-width="1.8" opacity="0.82"/>
+<line x1="190" y1="650" x2="375" y2="645" stroke="#16a34a" stroke-width="1.8" opacity="0.82"/>
+<line x1="190" y1="650" x2="385" y2="715" stroke="#16a34a" stroke-width="1.8" opacity="0.82"/>
+<line x1="190" y1="650" x2="385" y2="785" stroke="#16a34a" stroke-width="1.8" opacity="0.82"/>
+<line x1="1410" y1="320" x2="1175" y2="155" stroke="#f97316" stroke-width="1.8" opacity="0.82"/>
+<line x1="1410" y1="320" x2="1225" y2="230" stroke="#f97316" stroke-width="1.8" opacity="0.82"/>
+<line x1="1410" y1="320" x2="1205" y2="305" stroke="#f97316" stroke-width="1.8" opacity="0.82"/>
+<line x1="1410" y1="320" x2="1205" y2="380" stroke="#f97316" stroke-width="1.8" opacity="0.82"/>
+<line x1="1410" y1="320" x2="1225" y2="455" stroke="#f97316" stroke-width="1.8" opacity="0.82"/>
+<line x1="1410" y1="690" x2="1235" y2="585" stroke="#7c3aed" stroke-width="1.8" opacity="0.82"/>
+<line x1="1410" y1="690" x2="1255" y2="655" stroke="#7c3aed" stroke-width="1.8" opacity="0.82"/>
+<line x1="1410" y1="690" x2="1260" y2="725" stroke="#7c3aed" stroke-width="1.8" opacity="0.82"/>
+<line x1="1410" y1="690" x2="1270" y2="795" stroke="#7c3aed" stroke-width="1.8" opacity="0.82"/>
+<line x1="1045" y1="343" x2="1045" y2="342" stroke="#2563eb" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrowInclude)"/>
+<text x="1168" y="344.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#2563eb">
+<tspan x="1168" dy="0.0">?include?</tspan>
+</text>
+<line x1="555" y1="543" x2="555" y2="537" stroke="#2563eb" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrowInclude)"/>
+<text x="420" y="540.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#2563eb">
+<tspan x="420" dy="0.0">?include?</tspan>
+</text>
+<line x1="555" y1="543" x2="555" y2="607" stroke="#2563eb" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrowInclude)"/>
+<text x="744" y="583.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#2563eb">
+<tspan x="744" dy="0.0">?include?</tspan>
+</text>
+<line x1="555" y1="823" x2="555" y2="677" stroke="#dc2626" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrowExtend)"/>
+<text x="742" y="751.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#dc2626">
+<tspan x="742" dy="0.0">?extend?</tspan>
+</text>
+<g id="legend">
+<rect x="445" y="900" width="710" height="62" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="515" y="931.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#1f2937">
+<tspan x="515" dy="0.0">Legend</tspan>
+</text>
+<line x1="620" y1="922" x2="725" y2="922" stroke="#2563eb" stroke-width="2.2" stroke-dasharray="8 6" marker-end="url(#arrowInclude)"/>
+<text x="830" y="922.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#4b5563">
+<tspan x="830" dy="0.0">?include? required shared behavior</tspan>
+</text>
+<line x1="620" y1="944" x2="725" y2="944" stroke="#dc2626" stroke-width="2.2" stroke-dasharray="8 6" marker-end="url(#arrowExtend)"/>
+<text x="829" y="944.0" text-anchor="middle" dominant-baseline="middle" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#4b5563">
+<tspan x="829" dy="0.0">?extend? optional/conditional behavior</tspan>
+</text>
+</g>
+<metadata>digraph SIMKM_Use_Case_Diagram {
+	graph [rankdir=LR]
+	Admin [shape=plaintext]
+	&quot;Kelola Akun Pengguna&quot; [shape=ellipse]
+	Admin -&gt; &quot;Kelola Akun Pengguna&quot;
+	&quot;Kelola Tim &amp; Anggota&quot; [shape=ellipse]
+	Admin -&gt; &quot;Kelola Tim &amp; Anggota&quot;
+	&quot;Kelola Wilayah (Kecamatan &amp; Kelurahan)&quot; [shape=ellipse]
+	Admin -&gt; &quot;Kelola Wilayah (Kecamatan &amp; Kelurahan)&quot;
+	&quot;Pantau Log Aktivitas&quot; [shape=ellipse]
+	Admin -&gt; &quot;Pantau Log Aktivitas&quot;
+	&quot;Pegawai BPS&quot; [shape=plaintext]
+	&quot;Buat &amp; Kelola Survei&quot; [shape=ellipse]
+	&quot;Pegawai BPS&quot; -&gt; &quot;Buat &amp; Kelola Survei&quot;
+	&quot;Tambah Variabel Survei&quot; [shape=ellipse]
+	&quot;Pegawai BPS&quot; -&gt; &quot;Tambah Variabel Survei&quot;
+	&quot;Tugaskan Mitra ke Survei&quot; [shape=ellipse]
+	&quot;Pegawai BPS&quot; -&gt; &quot;Tugaskan Mitra ke Survei&quot;
+	&quot;Pantau Progres Mitra&quot; [shape=ellipse]
+	&quot;Pegawai BPS&quot; -&gt; &quot;Pantau Progres Mitra&quot;
+	&quot;Validasi Entri Data&quot; [shape=ellipse]
+	&quot;Pegawai BPS&quot; -&gt; &quot;Validasi Entri Data&quot;
+	Mitra [shape=plaintext]
+	Login [shape=ellipse]
+	Mitra -&gt; Login
+	&quot;Lihat Penugasan Survei&quot; [shape=ellipse]
+	Mitra -&gt; &quot;Lihat Penugasan Survei&quot;
+	&quot;Input Data Entri&quot; [shape=ellipse]
+	Mitra -&gt; &quot;Input Data Entri&quot;
+	&quot;Unggah Foto Bukti&quot; [shape=ellipse]
+	Mitra -&gt; &quot;Unggah Foto Bukti&quot;
+	&quot;Pantau Progres Pribadi&quot; [shape=ellipse]
+	Mitra -&gt; &quot;Pantau Progres Pribadi&quot;
+	&quot;Kepala BPS&quot; [shape=plaintext]
+	&quot;Lihat Dashboard Ringkasan&quot; [shape=ellipse]
+	&quot;Kepala BPS&quot; -&gt; &quot;Lihat Dashboard Ringkasan&quot;
+	&quot;Lihat Peringkat Kinerja Mitra&quot; [shape=ellipse]
+	&quot;Kepala BPS&quot; -&gt; &quot;Lihat Peringkat Kinerja Mitra&quot;
+	&quot;Pantau Sebaran Entri Wilayah&quot; [shape=ellipse]
+	&quot;Kepala BPS&quot; -&gt; &quot;Pantau Sebaran Entri Wilayah&quot;
+	&quot;Ekspor Laporan Kinerja ke Excel&quot; [shape=ellipse]
+	&quot;Kepala BPS&quot; -&gt; &quot;Ekspor Laporan Kinerja ke Excel&quot;
+	&quot;Input Data Entri&quot; -&gt; &quot;Unggah Foto Bukti&quot; [label=&quot;?include?&quot; style=dashed]
+	&quot;Buat &amp; Kelola Survei&quot; -&gt; &quot;Tambah Variabel Survei&quot; [label=&quot;?include?&quot; style=dashed]
+	&quot;Buat &amp; Kelola Survei&quot; -&gt; &quot;Tugaskan Mitra ke Survei&quot; [label=&quot;?include?&quot; style=dashed]
+	&quot;Validasi Entri Data&quot; -&gt; &quot;Pantau Progres Mitra&quot; [label=&quot;?extend?&quot; style=dashed]
+}
+</metadata>
+</svg>
