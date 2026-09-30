@@ -102,7 +102,7 @@
                         @foreach ($items as $entry)
                             <div class="mt-entry">
                                 @if ($entry->evidence_photo_path)
-                                    <img src="{{ asset('storage/'.$entry->evidence_photo_path) }}" alt="Foto bukti ruta {{ $entry->no_urut_ruta }}" loading="lazy" onerror="this.onerror=null;this.alt='';this.title='Foto tidak ditemukan';this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAAAAACw=';">
+                                    <img src="{{ $entry->photoUrl() }}" alt="Foto bukti ruta {{ $entry->no_urut_ruta }}" loading="lazy" onerror="this.onerror=null;this.alt='';this.title='Foto tidak ditemukan';this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAAAAACw=';">
                                 @else
                                     <span class="ph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
                                 @endif

@@ -104,7 +104,7 @@ class PapiEntriesController extends Controller
                     : (string) $values->get($variable->id, '')),
                 $entry->submitted_at?->format('d/m/Y H:i') ?? '',
                 $entry->updated_at?->format('d/m/Y H:i') ?? '',
-                $entry->evidence_photo_path ? asset('storage/'.$entry->evidence_photo_path) : '',
+                $entry->photoUrl() ? url($entry->photoUrl()) : '',
             ];
         });
 

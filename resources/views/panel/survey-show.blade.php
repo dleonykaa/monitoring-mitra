@@ -75,6 +75,7 @@
                     @if ($isLocked)
                         <span class="b b-outline-light" style="cursor:default">Terkunci</span>
                     @else
+                        <a class="b b-outline-light" href="/admin/surveys/{{ $survey->id }}/checkpoints">Checkpoint</a>
                         <a class="b b-outline-light" href="/admin/surveys/{{ $survey->id }}/edit">Ubah pengaturan</a>
                     @endif
                 @endif

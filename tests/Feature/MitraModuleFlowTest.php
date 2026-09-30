@@ -20,7 +20,7 @@ class MitraModuleFlowTest extends TestCase
     public function test_mitra_fills_entry_from_open_to_draft_to_selesai(): void
     {
         $this->seed();
-        Storage::fake('public');
+        Storage::fake(SurveyEntry::PHOTO_DISK);
 
         $mitra = User::query()->where('email', 'mitra@bps.go.id')->firstOrFail();
         $assignment = SurveyAssignment::query()
@@ -125,7 +125,19 @@ class MitraModuleFlowTest extends TestCase
         $openEntry->refresh();
         $this->assertSame(SurveyEntry::STATUS_SUBMITTED, $openEntry->entry_status);
         $this->assertNotNull($openEntry->submitted_at);
-        Storage::disk('public')->assertExists($openEntry->evidence_photo_path);
+        Storage::disk(SurveyEntry::PHOTO_DISK)->assertExists($openEntry->evidence_photo_path);
+        Storage::disk('public')->assertMissing($openEntry->evidence_photo_path);
+
+        // Foto bukti tidak lagi publik: hanya bisa dibuka setelah login, dan mitra lain ditolak.
+        $this->assertStringStartsWith('/bukti/'.$openEntry->id, $openEntry->photoUrl());
+        $this->actingAs($mitra)->get($openEntry->photoUrl())->assertOk();
+        $strangerMitra = User::factory()->create(['is_active' => true]);
+        $strangerMitra->assignRole('mitra');
+        $this->actingAs($strangerMitra)->get($openEntry->photoUrl())->assertForbidden();
+        $this->actingAs(User::query()->where('email', 'pegawai@bps.go.id')->firstOrFail())->get($openEntry->photoUrl())->assertOk();
+        auth()->logout();
+        $this->get($openEntry->photoUrl())->assertRedirect('/login');
+        $this->actingAs($mitra);
         $this->assertSame($initialProgress + 1, $assignment->fresh()->current_progress);
 
         // Entri selesai terkunci.

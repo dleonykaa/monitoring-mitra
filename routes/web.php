@@ -4,6 +4,7 @@ use App\Http\Controllers\Web\Admin\AdminDashboardController;
 use App\Http\Controllers\Web\Admin\MitraDirectoryController;
 use App\Http\Controllers\Web\Admin\SurveyManagementController;
 use App\Http\Controllers\Web\Admin\UserManagementController;
+use App\Http\Controllers\Web\EvidencePhotoController;
 use App\Http\Controllers\Web\Mitra\MitraPanelController;
 use App\Http\Controllers\Web\NotificationController;
 use App\Http\Controllers\Web\PapiEntriesController;
@@ -11,8 +12,10 @@ use App\Http\Controllers\Web\Pegawai\PegawaiPanelController;
 use App\Http\Controllers\Web\ProgressMonitoringController;
 use App\Models\SurveyEntry;
 use App\Models\User;
+use App\Notifications\PasswordResetRequestedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -67,6 +70,26 @@ Route::middleware('guest')->group(function () use ($homeFor, $noRoleMessage): vo
 
         return redirect($home);
     })->middleware('throttle:10,1');
+
+    // Lupa kata sandi: sistem tidak mengirim email, jadi permintaan diteruskan ke admin lewat notifikasi.
+    // Jawaban selalu sama agar tidak membocorkan email mana yang terdaftar.
+    Route::post('/lupa-kata-sandi', function (Request $request) {
+        $data = $request->validate(['reset_email' => ['required', 'email']], [], ['reset_email' => 'email']);
+
+        $user = User::query()->where('email', $data['reset_email'])->where('is_active', true)->first();
+        if ($user) {
+            $admins = User::query()->role('admin')->where('is_active', true)->get()
+                // Satu permintaan yang belum dibaca admin tidak perlu digandakan.
+                ->reject(fn (User $admin): bool => $admin->unreadNotifications()
+                    ->where('type', PasswordResetRequestedNotification::class)
+                    ->get()
+                    ->contains(fn ($notification): bool => ($notification->data['requester_id'] ?? null) === $user->id));
+
+            Notification::send($admins, new PasswordResetRequestedNotification($user));
+        }
+
+        return back()->with('reset_status', 'Permintaan reset kata sandi diteruskan ke admin. Hubungi admin untuk mendapatkan kata sandi baru.');
+    })->middleware('throttle:5,1');
 });
 
 Route::post('/logout', function (Request $request) {
@@ -84,6 +107,7 @@ Route::redirect('/ui/mitra', '/');
 Route::middleware('auth')->group(function (): void {
     Route::post('/profile/password', [UserManagementController::class, 'updatePassword']);
     Route::post('/notifications/read', [NotificationController::class, 'markAllRead']);
+    Route::get('/bukti/{entry}', [EvidencePhotoController::class, 'show'])->whereNumber('entry');
     Route::delete('/notifications', [NotificationController::class, 'clear']);
 
     Route::prefix('admin')->middleware('role:admin')->group(function (): void {

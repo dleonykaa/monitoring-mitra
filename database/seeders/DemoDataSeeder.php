@@ -145,12 +145,12 @@ class DemoDataSeeder extends Seeder
     }
 
     /**
-     * Membuat gambar contoh foto bukti di disk public agar halaman detail entri tidak menampilkan
+     * Membuat gambar contoh foto bukti di disk privat agar halaman detail entri tidak menampilkan
      * gambar rusak. Tanpa ekstensi GD, path tetap disimpan dan halaman menampilkan "Foto tidak ditemukan".
      */
     private function demoPhoto(string $path): string
     {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(SurveyEntry::PHOTO_DISK);
         if ($disk->exists($path) || ! function_exists('imagecreatetruecolor')) {
             return $path;
         }

@@ -19,7 +19,7 @@ class EndToEndModuleConnectionTest extends TestCase
     public function test_admin_survey_changes_are_connected_to_mitra_progress_flow(): void
     {
         $this->seed();
-        Storage::fake('public');
+        Storage::fake(SurveyEntry::PHOTO_DISK);
 
         $admin = User::query()->where('email', 'admin@bps.go.id')->firstOrFail();
         $pegawai = User::query()->where('email', 'pegawai@bps.go.id')->firstOrFail();

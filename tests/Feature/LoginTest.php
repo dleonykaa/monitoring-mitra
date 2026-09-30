@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\PasswordResetRequestedNotification;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -10,6 +11,39 @@ use Tests\TestCase;
 class LoginTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_forgot_password_request_is_forwarded_to_admin_without_revealing_accounts(): void
+    {
+        $this->seed();
+
+        $admin = User::query()->where('email', 'admin@bps.go.id')->firstOrFail();
+        $mitra = User::query()->where('email', 'mitra@bps.go.id')->firstOrFail();
+        $message = 'Permintaan reset kata sandi diteruskan ke admin. Hubungi admin untuk mendapatkan kata sandi baru.';
+
+        $this->get('/login')->assertOk()->assertSee('Lupa kata sandi?');
+
+        $this->from('/login')->post('/lupa-kata-sandi', ['reset_email' => $mitra->email])
+            ->assertRedirect('/login')
+            ->assertSessionHas('reset_status', $message);
+        $notification = $admin->notifications()->sole();
+        $this->assertSame(PasswordResetRequestedNotification::class, $notification->type);
+        $this->assertStringContainsString($mitra->email, $notification->data['message']);
+
+        // Permintaan kedua sebelum dibaca admin tidak menggandakan notifikasi.
+        $this->from('/login')->post('/lupa-kata-sandi', ['reset_email' => $mitra->email]);
+        $this->assertSame(1, $admin->notifications()->count());
+
+        // Email yang tidak terdaftar mendapat jawaban yang sama dan tidak mengirim apa pun.
+        $this->from('/login')->post('/lupa-kata-sandi', ['reset_email' => 'tidak.ada@example.com'])
+            ->assertSessionHas('reset_status', $message);
+        $this->assertSame(1, $admin->notifications()->count());
+
+        // Notifikasi admin menaut ke akun tersebut di Manajemen Pengguna.
+        $this->actingAs($admin)->get('/admin/dashboard')
+            ->assertOk()
+            ->assertSee('Permintaan Reset Kata Sandi')
+            ->assertSee('/admin/users?role=all&amp;q='.urlencode($mitra->email), false);
+    }
 
     public function test_each_role_lands_on_its_own_dashboard(): void
     {

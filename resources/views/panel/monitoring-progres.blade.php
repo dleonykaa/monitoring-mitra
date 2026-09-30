@@ -627,7 +627,7 @@
                     <li>
                         <span class="fx-warn-txt">
                             <b title="{{ $mitra['name'] }}">{{ $mitra['name'] }}</b>
-                            <small>{{ $fmt($mitra['progress']) }} dari {{ $fmt($mitra['target']) }} ruta · kurang {{ $fmt($mitraGap) }}</small>
+                            <small>{{ $fmt($mitra['progress']) }} dari {{ $fmt($mitra['target']) }} {{ $unit }} · kurang {{ $fmt($mitraGap) }}</small>
                         </span>
                         <span class="fx-meter" role="img" aria-label="Capaian {{ $fmtPct($mitra['percent']) }} dari target {{ $passedCheckpoint->target_percentage }}%">
                             <i class="warn" style="width:{{ min(100, $mitra['percent']) }}%"></i>

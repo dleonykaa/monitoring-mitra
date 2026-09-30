@@ -9,11 +9,11 @@ use App\Models\District;
 use App\Models\FasihImport;
 use App\Models\FasihProgressRow;
 use App\Models\Survey;
-use App\Models\SurveyAssignment;
 use App\Models\SurveyCheckpoint;
 use App\Models\SurveyEntry;
 use App\Services\FasihProgressImporter;
 use App\Services\FasihProgressReport;
+use App\Services\MitraCheckpointProgress;
 use App\Services\PapiProgressRows;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -34,6 +34,7 @@ class ProgressMonitoringController extends Controller
     public function __construct(
         private readonly FasihProgressReport $report,
         private readonly PapiProgressRows $papiRows,
+        private readonly MitraCheckpointProgress $checkpointProgress,
     ) {}
 
     public function index(Request $request): View
@@ -264,29 +265,18 @@ class ProgressMonitoringController extends Controller
     }
 
     /**
-     * Checkpoint terakhir yang sudah lewat beserta mitra PAPI yang capaiannya masih di bawah targetnya,
+     * Checkpoint terakhir yang sudah lewat beserta mitra yang capaiannya masih di bawah targetnya,
      * diurutkan dari capaian terendah.
      *
      * @return array{passedCheckpoint: SurveyCheckpoint|null, belowCheckpoint: Collection<int, array{name: string, progress: int, target: int, percent: float}>}
      */
     private function checkpointStatus(?Survey $survey): array
     {
-        $checkpoint = $survey && ! $survey->isCapi() ? $survey->passedCheckpoint() : null;
+        $checkpoint = $survey?->passedCheckpoint();
 
         return [
             'passedCheckpoint' => $checkpoint,
-            'belowCheckpoint' => $checkpoint
-                ? $survey->assignments()->with('mitra')->get()
-                    ->filter(fn (SurveyAssignment $assignment): bool => $assignment->mitra !== null && $assignment->isBelow($checkpoint))
-                    ->map(fn (SurveyAssignment $assignment): array => [
-                        'name' => $assignment->mitra->name,
-                        'progress' => (int) $assignment->current_progress,
-                        'target' => (int) $assignment->target,
-                        'percent' => $assignment->progressPercent(),
-                    ])
-                    ->sortBy('percent')
-                    ->values()
-                : collect(),
+            'belowCheckpoint' => $checkpoint ? $this->checkpointProgress->below($survey, $checkpoint) : collect(),
         ];
     }
 

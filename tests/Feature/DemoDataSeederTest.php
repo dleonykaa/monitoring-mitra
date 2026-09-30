@@ -15,7 +15,7 @@ class DemoDataSeederTest extends TestCase
 
     public function test_demo_data_is_consistent(): void
     {
-        Storage::fake('public');
+        Storage::fake(SurveyEntry::PHOTO_DISK);
         $this->seed();
 
         $duplicates = SurveyEntry::query()
@@ -35,7 +35,7 @@ class DemoDataSeederTest extends TestCase
         });
 
         SurveyEntry::query()->where('entry_status', SurveyEntry::STATUS_SUBMITTED)->pluck('evidence_photo_path')
-            ->each(fn (?string $path) => Storage::disk('public')->assertExists($path));
+            ->each(fn (?string $path) => Storage::disk(SurveyEntry::PHOTO_DISK)->assertExists($path));
 
         $this->assertSame(0, Permission::query()->count(), 'Otorisasi hanya memakai peran.');
     }

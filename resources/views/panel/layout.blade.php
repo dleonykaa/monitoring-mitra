@@ -249,6 +249,9 @@
                     $unread = auth()->user()->unreadNotifications()->count();
                     $notifUrl = function ($notif) use ($prefix): string {
                         $data = $notif->data;
+                        if ($prefix === 'admin' && isset($data['url']) && str_starts_with($data['url'], '/admin/')) {
+                            return $data['url'];
+                        }
                         if (in_array($prefix, ['admin', 'pegawai'], true)) {
                             return isset($data['entry_id']) ? '/'.$prefix.'/entri-papi/'.$data['entry_id'] : '#';
                         }

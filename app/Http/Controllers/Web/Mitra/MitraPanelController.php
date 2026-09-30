@@ -223,7 +223,7 @@ class MitraPanelController extends Controller
 
         $photoPath = $entry->evidence_photo_path;
         if ($request->hasFile('evidence_photo')) {
-            $photoPath = $request->file('evidence_photo')->store('survey-evidence', 'public');
+            $photoPath = $request->file('evidence_photo')->store('survey-evidence', SurveyEntry::PHOTO_DISK);
         }
 
         DB::transaction(function () use ($request, $assignment, $entry, $data, $photoPath, $isSubmit, $variables): void {

@@ -78,6 +78,16 @@
         .pw-toggle[aria-pressed="true"] .ic-eye{display:none}
         .pw-toggle[aria-pressed="true"] .ic-eye-off{display:block}
 
+        .alert.ok{background:#ecfdf5;color:#065f46;border-color:#86efac}
+        [data-theme="dark"] .alert.ok{background:#0e3a2a;color:#86efac;border-color:#14532d}
+        .forgot{margin-top:16px;font-size:13.5px}
+        .forgot summary{cursor:pointer;color:var(--brand, #1d4ed8);font-weight:600;list-style:none;display:inline-block}
+        .forgot summary::-webkit-details-marker{display:none}
+        .forgot summary:hover{text-decoration:underline}
+        .forgot p{margin:10px 0;color:var(--muted);font-size:12.5px;line-height:1.5}
+        .forgot-row{display:flex;gap:8px}
+        .forgot-row input{flex:1 1 auto;min-width:0;padding:10px 12px;border:1px solid var(--line, #dbe6f5);border-radius:10px;font:inherit;font-size:13.5px;background:transparent;color:inherit}
+        .forgot-row button{flex:none;padding:10px 14px;border:0;border-radius:10px;background:var(--brand, #1d4ed8);color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
         .remember{display:inline-flex;align-items:center;gap:9px;font-size:13.5px;color:var(--text);cursor:pointer;margin:2px 0 24px;user-select:none}
         .remember input{width:17px;height:17px;margin:0;accent-color:var(--brand);cursor:pointer}
 
@@ -173,6 +183,13 @@
                 </div>
             @endif
 
+            @if (session('reset_status'))
+                <div class="alert ok" role="status">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>
+                    <span>{{ session('reset_status') }}</span>
+                </div>
+            @endif
+
             <form id="login-form" method="POST" action="/login">
                 @csrf
                 <div class="field">
@@ -197,6 +214,18 @@
                     <span class="label">Masuk</span>
                 </button>
             </form>
+
+            <details class="forgot" @if ($errors->has('reset_email')) open @endif>
+                <summary>Lupa kata sandi?</summary>
+                <form method="POST" action="/lupa-kata-sandi">
+                    @csrf
+                    <p>Masukkan email akun Anda. Permintaan diteruskan ke admin, lalu admin memberi Anda kata sandi baru.</p>
+                    <div class="forgot-row">
+                        <input type="email" name="reset_email" value="{{ old('reset_email') }}" required placeholder="Email akun Anda" autocomplete="username" aria-label="Email akun">
+                        <button type="submit">Minta reset</button>
+                    </div>
+                </form>
+            </details>
 
             <div class="demo">
                 <p>Coba dengan akun demo:</p>

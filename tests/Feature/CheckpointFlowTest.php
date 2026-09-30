@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Survey;
 use App\Models\User;
 use App\Notifications\CheckpointMissedNotification;
+use Database\Seeders\RegionSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -101,6 +102,50 @@ class CheckpointFlowTest extends TestCase
             ->assertSee('Di bawah target')
             ->assertSeeInOrder(['Peringatan', 'Survei di bawah target checkpoint', $behind->name, 'Capaian 30,0%'])
             ->assertDontSee('Capaian 60,0%');
+    }
+
+    public function test_capi_checkpoint_alerts_use_fasih_progress(): void
+    {
+        [$admin, $behind, $onTrack] = $this->users(3);
+        $this->seed(RegionSeeder::class);
+        $survey = Survey::query()->create([
+            'type' => Survey::TYPE_CAPI,
+            'title' => 'Survei CAPI Checkpoint',
+            'start_date' => now()->subWeek()->toDateString(),
+            'end_date' => now()->addWeek()->toDateString(),
+            'status' => 'Berjalan',
+            'created_by' => $admin->id,
+            'total_target' => 0,
+        ]);
+        $import = $survey->fasihImports()->create(['user_id' => $admin->id, 'file_name' => 'uji.csv', 'row_count' => 3]);
+        $row = fn (User $user, string $sls, int $total, int $submit): array => [
+            'user_id' => $user->id, 'email' => strtolower($user->email), 'username' => $user->email,
+            'region_code' => '3101010001'.$sls.'00', 'district_code' => '3101010', 'village_code' => '3101010001', 'sls_code' => '3101010001'.$sls,
+            'total_region' => $total, 'open_count' => $total - $submit, 'draft_count' => 0, 'submit_count' => $submit, 'other_count' => 0,
+            'status_breakdown' => [],
+        ];
+        $import->rows()->create($row($behind, '0001', 10, 2));
+        $import->rows()->create($row($behind, '0002', 10, 2));
+        $import->rows()->create($row($onTrack, '0003', 10, 9));
+        $checkpoint = $survey->checkpoints()->create(['checkpoint_date' => now()->subDay()->toDateString(), 'target_percentage' => 50]);
+
+        // Halaman checkpoint terbuka untuk survei CAPI dan menghitung mitra dari data FASIH.
+        $this->actingAs($admin)->get('/admin/surveys/'.$survey->id.'/checkpoints')
+            ->assertOk()
+            ->assertSee('dari 2 mitra')
+            ->assertSee('data FASIH terbaru');
+
+        $this->artisan('app:send-checkpoint-alerts')->assertSuccessful();
+
+        $notification = $behind->notifications()->sole();
+        $this->assertStringContainsString('baru 20% (4 dari 20 dokumen)', $notification->data['message']);
+        $this->assertArrayNotHasKey('survey_id', $notification->data);
+        $this->assertSame(0, $onTrack->notifications()->count());
+        $this->assertNotNull($checkpoint->fresh()->notified_at);
+
+        $this->actingAs($admin)->get('/admin/monitoring/progres?survey='.$survey->id)
+            ->assertOk()
+            ->assertSeeInOrder(['Peringatan', $behind->name, '20,0%']);
     }
 
     /**

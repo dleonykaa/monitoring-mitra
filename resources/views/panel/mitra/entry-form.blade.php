@@ -155,7 +155,7 @@
             <div class="pnl-b ef-photo">
                 <label class="ef-frame" id="photoFrame">
                     <input type="file" name="evidence_photo" id="photoInput" accept="image/*" capture="environment" aria-describedby="photoHint">
-                    <img id="photoPreview" src="{{ $hasPhoto ? asset('storage/'.$entry->evidence_photo_path) : '' }}" alt="Pratinjau foto bukti" @unless ($hasPhoto) hidden @endunless>
+                    <img id="photoPreview" src="{{ $hasPhoto ? $entry->photoUrl() : '' }}" alt="Pratinjau foto bukti" @unless ($hasPhoto) hidden @endunless>
                     <span id="photoEmpty" @if ($hasPhoto) hidden @endif>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                         <b>Ambil atau pilih foto</b>

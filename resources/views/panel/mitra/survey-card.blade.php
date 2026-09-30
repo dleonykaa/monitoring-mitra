@@ -26,6 +26,13 @@
         </div>
     </div>
 
+    @php
+        $cardCheckpoint = $isRunning ? $survey->passedCheckpoint() : null;
+    @endphp
+    @if ($cardCheckpoint && $target > 0 && $share($done) < $cardCheckpoint->target_percentage)
+        <p class="late" style="margin:0;font-size:12px;color:var(--st-late-ink);font-weight:600">Di bawah target {{ $cardCheckpoint->target_percentage }}% per {{ $cardCheckpoint->checkpoint_date->locale('id')->translatedFormat('d M') }}</p>
+    @endif
+
     <div class="mt-big">
         <b>{{ number_format($share($done), 1, ',', '.') }}%</b>
         <span>{{ $fmt($done) }} dari {{ $fmt($target) }} {{ $item['unit'] }} selesai</span>

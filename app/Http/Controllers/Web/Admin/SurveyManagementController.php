@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\Village;
 use App\Notifications\MitraAssignedNotification;
 use App\Services\FasihProgressImporter;
+use App\Services\MitraCheckpointProgress;
 use App\Services\PapiAllocationImporter;
 use App\Services\SurveyProgressSummary;
 use Illuminate\Http\RedirectResponse;
@@ -406,16 +407,15 @@ class SurveyManagementController extends Controller
         return back()->withFragment('importForm')->with('status', $message)->with('import_success', $message);
     }
 
-    public function checkpoints(Request $request, Survey $survey): View|RedirectResponse
+    public function checkpoints(Request $request, Survey $survey, MitraCheckpointProgress $progress): View|RedirectResponse
     {
-        $this->ensurePapiSurvey($survey);
-
         if ($survey->status === 'Selesai') {
             return redirect('/admin/surveys/'.$survey->id)->withErrors(['survey' => 'Survei selesai tidak dapat diedit.']);
         }
 
         return view('panel.admin.surveys.checkpoints', [
-            'survey' => $survey->load(['checkpoints', 'assignments']),
+            'survey' => $survey->load('checkpoints'),
+            'mitraProgress' => $progress->forSurvey($survey),
         ]);
     }
 
@@ -425,7 +425,6 @@ class SurveyManagementController extends Controller
      */
     public function storeCheckpoint(Request $request, Survey $survey): RedirectResponse
     {
-        $this->ensurePapiSurvey($survey);
         $this->ensureSurveyIsEditable($survey);
 
         $data = $request->validate([
@@ -456,7 +455,6 @@ class SurveyManagementController extends Controller
 
     public function deleteCheckpoint(Request $request, Survey $survey, SurveyCheckpoint $checkpoint): RedirectResponse
     {
-        $this->ensurePapiSurvey($survey);
         $this->ensureSurveyIsEditable($survey);
         abort_unless($checkpoint->survey_id === $survey->id, 404);
 
@@ -533,7 +531,7 @@ class SurveyManagementController extends Controller
     }
 
     /**
-     * Variabel, alokasi, dan checkpoint hanya berlaku untuk survei PAPI.
+     * Variabel dan alokasi hanya berlaku untuk survei PAPI.
      */
     private function ensurePapiSurvey(Survey $survey): void
     {

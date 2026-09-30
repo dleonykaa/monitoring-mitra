@@ -76,8 +76,8 @@
             <div class="pnl-h"><h2 id="photoTitle">Foto bukti</h2></div>
             <div class="pnl-b">
                 @if ($entry->evidence_photo_path)
-                    <a href="{{ asset('storage/'.$entry->evidence_photo_path) }}" target="_blank" rel="noopener">
-                        <img class="ed-photo" src="{{ asset('storage/'.$entry->evidence_photo_path) }}" alt="Foto bukti pencacahan ruta {{ $entry->no_urut_ruta }}" onerror="this.onerror=null;this.alt='';this.title='Foto tidak ditemukan';this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAAAAACw=';">
+                    <a href="{{ $entry->photoUrl() }}" target="_blank" rel="noopener">
+                        <img class="ed-photo" src="{{ $entry->photoUrl() }}" alt="Foto bukti pencacahan ruta {{ $entry->no_urut_ruta }}" onerror="this.onerror=null;this.alt='';this.title='Foto tidak ditemukan';this.classList.add('img-missing');this.src='data:image/gif;base64,R0lGODlhAQABAAAAACw=';">
                     </a>
                     <p style="margin:8px 0 0;font-size:12px;color:var(--muted)">Klik foto untuk membuka ukuran penuh.</p>
                 @else

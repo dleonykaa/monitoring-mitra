@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Models\SurveyAssignment;
 use App\Models\SurveyCheckpoint;
 use App\Notifications\CheckpointMissedNotification;
+use App\Services\MitraCheckpointProgress;
 use Illuminate\Console\Command;
 
 class SendCheckpointAlertsCommand extends Command
@@ -13,13 +13,13 @@ class SendCheckpointAlertsCommand extends Command
 
     protected $description = 'Kirim peringatan ke mitra yang capaiannya di bawah target checkpoint yang tanggalnya sudah lewat';
 
-    public function handle(): int
+    public function handle(MitraCheckpointProgress $progress): int
     {
         $checkpoints = SurveyCheckpoint::query()
             ->whereNull('notified_at')
             ->whereDate('checkpoint_date', '<', now('Asia/Jakarta')->toDateString())
             ->whereHas('survey', fn ($query) => $query->where('status', 'Berjalan'))
-            ->with('survey.assignments.mitra')
+            ->with('survey.latestFasihImport')
             ->orderBy('checkpoint_date')
             ->get();
 
@@ -27,9 +27,10 @@ class SendCheckpointAlertsCommand extends Command
         foreach ($checkpoints->groupBy('survey_id') as $surveyCheckpoints) {
             $checkpoint = $surveyCheckpoints->last();
 
-            $checkpoint->survey->assignments
-                ->filter(fn (SurveyAssignment $assignment): bool => $assignment->isBelow($checkpoint) && (bool) $assignment->mitra?->is_active)
-                ->each(fn (SurveyAssignment $assignment) => $assignment->mitra->notify(new CheckpointMissedNotification($checkpoint, $assignment)));
+            // Mitra CAPI yang belum punya akun SIMPROCA tidak bisa diberi notifikasi.
+            $progress->below($checkpoint->survey, $checkpoint)
+                ->filter(fn (array $mitra): bool => (bool) $mitra['user']?->is_active)
+                ->each(fn (array $mitra) => $mitra['user']->notify(new CheckpointMissedNotification($checkpoint, $mitra)));
 
             SurveyCheckpoint::query()->whereKey($surveyCheckpoints->modelKeys())->update(['notified_at' => now()]);
         }

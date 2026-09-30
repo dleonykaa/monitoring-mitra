@@ -67,7 +67,7 @@ class NotificationFlowTest extends TestCase
     public function test_admin_and_pegawai_are_notified_when_mitra_submits_an_entry(): void
     {
         $this->seed();
-        Storage::fake('public');
+        Storage::fake(SurveyEntry::PHOTO_DISK);
 
         $admin = User::query()->where('email', 'admin@bps.go.id')->firstOrFail();
         $pegawai = User::query()->where('email', 'pegawai@bps.go.id')->firstOrFail();

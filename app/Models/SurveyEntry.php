@@ -74,6 +74,21 @@ class SurveyEntry extends Model
         return $this->exists && filled($this->village_id) && filled($this->sls) && filled($this->no_urut_ruta);
     }
 
+    /**
+     * Disk privat tempat foto bukti disimpan; foto hanya bisa dibuka lewat photoUrl() setelah login.
+     */
+    public const PHOTO_DISK = 'local';
+
+    /**
+     * Alamat foto bukti yang diperiksa hak aksesnya (lihat EvidencePhotoController), atau null bila belum ada foto.
+     */
+    public function photoUrl(): ?string
+    {
+        return filled($this->evidence_photo_path)
+            ? '/bukti/'.$this->id.'?v='.substr(md5($this->evidence_photo_path), 0, 8)
+            : null;
+    }
+
     public function statusLabel(): string
     {
         return self::STATUS_LABELS[$this->entry_status] ?? ucfirst((string) $this->entry_status);

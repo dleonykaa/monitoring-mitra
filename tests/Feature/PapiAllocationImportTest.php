@@ -53,7 +53,7 @@ class PapiAllocationImportTest extends TestCase
 
     public function test_import_allocates_ruta_by_email_and_mitra_can_fill_them(): void
     {
-        Storage::fake('public');
+        Storage::fake(SurveyEntry::PHOTO_DISK);
         $mitra = User::query()->where('email', 'mitra@bps.go.id')->firstOrFail();
         $other = User::query()->where('email', 'siti.nurhaliza@gmail.com')->firstOrFail();
         $variable = SurveyVariable::query()->create(['survey_id' => $this->survey->id, 'name' => 'Jumlah ART', 'data_type' => 'number', 'example_format' => '4']);
