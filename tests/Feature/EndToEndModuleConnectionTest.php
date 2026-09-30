@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\District;
 use App\Models\Survey;
 use App\Models\SurveyAssignment;
 use App\Models\SurveyEntry;
 use App\Models\User;
+use App\Models\Village;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -16,18 +16,18 @@ class EndToEndModuleConnectionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_pegawai_survey_changes_are_connected_to_mitra_progress_flow(): void
+    public function test_admin_survey_changes_are_connected_to_mitra_progress_flow(): void
     {
         $this->seed();
         Storage::fake('public');
 
+        $admin = User::query()->where('email', 'admin@bps.go.id')->firstOrFail();
         $pegawai = User::query()->where('email', 'pegawai@bps.go.id')->firstOrFail();
         $mitra = User::query()->where('email', 'mitra@bps.go.id')->firstOrFail();
-        $team = $pegawai->teams()->firstOrFail();
-        $district = District::query()->firstOrFail();
+        $village = Village::query()->firstOrFail();
 
-        $this->actingAs($pegawai)->post('/pegawai/surveys', [
-            'team_id' => $team->id,
+        $this->actingAs($admin)->post('/admin/surveys', [
+            'type' => Survey::TYPE_PAPI,
             'title' => 'Survei Integrasi Modul',
             'description' => 'Survei untuk memastikan modul pegawai dan mitra terhubung.',
             'start_date' => '2026-10-10',
@@ -37,31 +37,25 @@ class EndToEndModuleConnectionTest extends TestCase
         $survey = Survey::query()->where('title', 'Survei Integrasi Modul')->firstOrFail();
         $this->assertSame('Draft', $survey->status);
 
-        $this->actingAs($pegawai)->post('/pegawai/surveys/'.$survey->id.'/assignments', [
+        $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/assignments', [
             'mitra_id' => $mitra->id,
+            'village_id' => Village::query()->firstOrFail()->id,
+            'sls' => 'RT 001 RW 001',
             'target' => 2,
-        ])->assertRedirect();
+        ])->assertRedirect()->assertSessionHasNoErrors();
 
-        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$survey->id.'/assignments')
+        $this->actingAs($admin)->get('/admin/surveys/'.$survey->id.'/assignments')
             ->assertOk()
-            ->assertSee('Simpan dan Lanjutkan');
+            ->assertSee('Jalankan survei')
+            ->assertSee('Checkpoint');
 
-        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$survey->id.'/checkpoints')
+        // Checkpoint adalah langkah opsional setelah alokasi.
+        $this->actingAs($admin)->get('/admin/surveys/'.$survey->id.'/checkpoints')
             ->assertOk()
-            ->assertSee('Jalankan Survei');
+            ->assertSee('Belum ada checkpoint');
 
-        $this->actingAs($pegawai)->post('/pegawai/surveys/'.$survey->id.'/checkpoints', [
-            'checkpoint_date' => '2026-10-20',
-            'target_percentage' => 50,
-        ])->assertRedirect();
-
-        $this->assertDatabaseHas('survey_checkpoints', [
-            'survey_id' => $survey->id,
-            'target_percentage' => 50,
-        ]);
-
-        $this->actingAs($pegawai)->post('/pegawai/surveys/'.$survey->id.'/finish-setup')
-            ->assertRedirect('/pegawai/surveys')
+        $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/finish-setup')
+            ->assertRedirect('/admin/surveys')
             ->assertSessionHas('status', 'Survei berhasil dibuat.');
 
         $survey->refresh();
@@ -71,39 +65,50 @@ class EndToEndModuleConnectionTest extends TestCase
         $this->actingAs($mitra)->get('/mitra/surveys')
             ->assertOk()
             ->assertSee('Survei Integrasi Modul')
-            ->assertSee('Tambah Progress');
+            ->assertSee('/mitra/surveys/'.$survey->id, false);
 
-        $this->actingAs($mitra)->post('/mitra/surveys/'.$survey->id.'/entries', [
+        // Alokasi manual sudah membuat 2 ruta Open bernomor urut; mitra mengisi ruta pertama.
+        $allocated = SurveyEntry::query()->where('survey_id', $survey->id)->orderBy('id')->get();
+        $this->assertSame(['1', '2'], $allocated->pluck('no_urut_ruta')->all());
+        $this->assertSame([SurveyEntry::STATUS_OPEN], $allocated->pluck('entry_status')->unique()->values()->all());
+
+        $this->actingAs($mitra)->put('/mitra/entries/'.$allocated->first()->id, [
             'action' => 'submit',
-            'kode_nks' => 'NKS-INTEGRASI',
-            'sls' => 'SLS-INTEGRASI',
-            'no_urut_ruta' => 'RUTA-INTEGRASI',
-            'district_id' => $district->id,
             'evidence_photo' => UploadedFile::fake()->image('bukti.jpg'),
             'variables' => [],
         ])->assertRedirect('/mitra/surveys/'.$survey->id)
-            ->assertSessionHas('status', 'Progress ditambahkan!');
+            ->assertSessionHas('status', 'Entri dikirim. Progres Anda bertambah.');
 
         $assignment = SurveyAssignment::query()->where('survey_id', $survey->id)->where('mitra_id', $mitra->id)->firstOrFail();
         $this->assertSame(1, (int) $assignment->current_progress);
 
-        $entry = SurveyEntry::query()->where('survey_id', $survey->id)->where('no_urut_ruta', 'RUTA-INTEGRASI')->firstOrFail();
+        $entry = $allocated->first()->fresh();
         $this->assertSame('submitted', $entry->entry_status);
 
-        $this->actingAs($pegawai)->get('/pegawai/entries?survey_id='.$survey->id)
+        $this->actingAs($pegawai)->get('/pegawai/entri-papi?survey='.$survey->id)
             ->assertOk()
-            ->assertSee('RUTA-INTEGRASI')
+            ->assertSee('RT 001 RW 001')
             ->assertSee($mitra->name);
 
-        $this->actingAs($pegawai)->put('/pegawai/surveys/'.$survey->id, [
+        $this->actingAs($pegawai)->put('/admin/surveys/'.$survey->id, [
+            'title' => 'Diubah pegawai',
+            'start_date' => '2026-10-10',
+            'end_date' => '2026-10-30',
+        ])->assertForbidden();
+
+        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$survey->id)
+            ->assertOk()
+            ->assertSee('Survei Integrasi Modul');
+
+        $this->actingAs($admin)->put('/admin/surveys/'.$survey->id, [
             'title' => 'Survei Integrasi Modul Edit',
-            'description' => 'Judul diubah oleh pegawai.',
+            'description' => 'Judul diubah oleh admin.',
             'start_date' => '2026-10-10',
             'end_date' => '2026-10-30',
         ])->assertRedirect()
             ->assertSessionHas('status', 'Survei berhasil diperbarui.');
 
-        $this->actingAs($mitra)->get('/mitra/surveys')
+        $this->actingAs($mitra)->get('/mitra/dashboard')
             ->assertOk()
             ->assertSee('Survei Integrasi Modul Edit')
             ->assertDontSee('Survei Integrasi Modul</');

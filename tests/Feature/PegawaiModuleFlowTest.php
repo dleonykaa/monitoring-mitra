@@ -10,7 +10,7 @@ use App\Models\SurveyCheckpoint;
 use App\Models\SurveyEntry;
 use App\Models\SurveyVariable;
 use App\Models\User;
-use App\Services\EntryAnomalyValidator;
+use App\Models\Village;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -34,32 +34,42 @@ class PegawaiModuleFlowTest extends TestCase
             ->assertRedirect('/mitra/dashboard');
     }
 
-    public function test_pegawai_can_use_survey_wizard_and_core_menus(): void
+    public function test_admin_prepares_papi_survey_and_pegawai_uses_view_only_menus(): void
     {
         $this->seed();
 
+        $admin = User::query()->where('email', 'admin@bps.go.id')->firstOrFail();
         $pegawai = User::query()->where('email', 'pegawai@bps.go.id')->firstOrFail();
         $mitra = User::query()->where('email', 'mitra@bps.go.id')->firstOrFail();
-        $team = $pegawai->teams()->firstOrFail();
+
+        $this->actingAs($pegawai)->post('/admin/surveys', ['type' => 'papi', 'title' => 'Tidak Boleh'])->assertForbidden();
+        $this->actingAs($pegawai)->post('/pegawai/surveys', ['title' => 'Tidak Boleh'])->assertMethodNotAllowed();
+        $this->actingAs($pegawai)->get('/pegawai/surveys')->assertOk()->assertDontSee('/pegawai/surveys/create', false);
 
         $this->actingAs($pegawai)
             ->get('/pegawai/dashboard')
             ->assertOk()
-            ->assertSee('Hi, '.$pegawai->name)
-            ->assertSee('Progress Survei')
+            ->assertSee($pegawai->name)
+            ->assertSee('Capaian per survei')
+            ->assertSeeInOrder(['Dashboard', 'Monitoring', 'Survei'])
+            ->assertDontSee('href="/admin/surveys/create"', false)
+            ->assertDontSee('Data Entri</a>', false)
+            ->assertDontSee('Daftar Mitra')
             ->assertDontSee('Progress Mitra Survei');
+
+        foreach (['/pegawai/entries', '/pegawai/updates', '/pegawai/mitra', '/pegawai/notifications'] as $removedRoute) {
+            $this->actingAs($pegawai)->get($removedRoute)->assertNotFound();
+        }
 
         $existingSurvey = Survey::query()->where('title', 'SUSENAS')->firstOrFail();
         $this->actingAs($pegawai)
-            ->get('/pegawai/dashboard?survey_id='.$existingSurvey->id)
+            ->get('/pegawai/dashboard')
             ->assertOk()
-            ->assertSee('Progress Mitra Survei')
-            ->assertSee('Cari mitra')
-            ->assertSee('Sebelumnya')
-            ->assertSee('Berikutnya');
+            ->assertDontSee('href="/pegawai/monitoring/progres?survey='.$existingSurvey->id.'"', false)
+            ->assertDontSee('/admin/surveys/create', false);
 
-        $storeResponse = $this->actingAs($pegawai)->post('/pegawai/surveys', [
-            'team_id' => $team->id,
+        $storeResponse = $this->actingAs($admin)->post('/admin/surveys', [
+            'type' => 'papi',
             'title' => 'Survei Modul Pegawai',
             'description' => 'Survei untuk uji modul pegawai',
             'total_target' => 1,
@@ -68,23 +78,25 @@ class PegawaiModuleFlowTest extends TestCase
         ]);
 
         $survey = Survey::query()->where('title', 'Survei Modul Pegawai')->firstOrFail();
-        $storeResponse->assertRedirect('/pegawai/surveys/'.$survey->id.'/variables');
+        $storeResponse->assertRedirect('/admin/surveys/'.$survey->id.'/variables');
 
-        $this->actingAs($pegawai)->post('/pegawai/surveys/'.$survey->id.'/variables', [
+        $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/variables', [
             'name' => 'Jumlah ART',
             'data_type' => 'number',
             'example_format' => '4',
         ])->assertRedirect();
 
-        $this->actingAs($pegawai)->post('/pegawai/surveys/'.$survey->id.'/assignments', [
+        $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/assignments', [
             'mitra_id' => $mitra->id,
+            'village_id' => Village::query()->firstOrFail()->id,
+            'sls' => 'RT 001 RW 001',
             'target' => 1,
-        ])->assertRedirect();
-        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$survey->id.'/assignments')
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->get('/admin/surveys/'.$survey->id.'/assignments')
             ->assertOk()
             ->assertSee('Cari dan pilih mitra')
-            ->assertSee('Tambahkan sebagai alokasi baru')
-            ->assertSee('Ganti alokasi yang sudah ada');
+            ->assertSee('Impor dari Excel')
+            ->assertDontSee('Tambahkan ke alokasi');
 
         $assignment = SurveyAssignment::query()->where('survey_id', $survey->id)->where('mitra_id', $mitra->id)->firstOrFail();
         $district = District::query()->firstOrFail();
@@ -106,56 +118,47 @@ class PegawaiModuleFlowTest extends TestCase
         ]);
         $assignment->update(['current_progress' => 1]);
 
-        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$survey->id)->assertOk()->assertSee('Detail Survei');
-        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$survey->id.'/variables/template')->assertOk();
-        $this->actingAs($pegawai)->get('/pegawai/updates')->assertOk()->assertSee('Riwayat Update');
-        $this->actingAs($pegawai)->get('/pegawai/updates?modified_from=2026-01-01&modified_to=2026-12-31')
+        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$survey->id)
             ->assertOk()
-            ->assertSee('Pilih Rentang Waktu')
-            ->assertSee('RUTA07UJI');
+            ->assertSee('Data entri')
+            ->assertSee('/pegawai/entri-papi?survey='.$survey->id, false)
+            ->assertDontSee('Ubah pengaturan')
+            ->assertDontSee('Kelola alokasi');
+        $this->actingAs($admin)->get('/admin/surveys/'.$survey->id.'/variables/template')->assertOk();
+        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$survey->id.'/entries')
+            ->assertRedirect('/pegawai/entri-papi?survey='.$survey->id);
+        $this->actingAs($pegawai)->get('/pegawai/entri-papi?survey='.$survey->id)
+            ->assertOk()
+            ->assertSee('Data Entri PAPI')
+            ->assertSee('Jumlah ART')
+            ->assertSee('RUTA07UJI')
+            ->assertSee($mitra->name);
+        $this->actingAs($pegawai)->get('/pegawai/entri-papi?survey='.$survey->id.'&q=tidak-ada')
+            ->assertOk()
+            ->assertSee('Tidak ada entri yang cocok');
+        $this->actingAs($pegawai)->get('/pegawai/entri-papi/'.$entry->id)
+            ->assertOk()
+            ->assertSee('Isian variabel')
+            ->assertSee('Jumlah ART')
+            ->assertSee('Foto bukti');
         $this->actingAs($pegawai)->get('/pegawai/updates/'.$entry->id)
-            ->assertOk()
-            ->assertSee('Dokumentasi')
-            ->assertSee('Jumlah ART');
-        $this->actingAs($pegawai)->get('/pegawai/mitra')->assertOk()->assertSee($mitra->name);
-        $this->actingAs($pegawai)->get('/pegawai/entries?survey_id='.$survey->id)
-            ->assertOk()
-            ->assertSee('Submit')
-            ->assertSee('Modified')
-            ->assertSee('#1')
-            ->assertSee('Detail')
-            ->assertDontSee('Catatan internal')
-            ->assertSee('RUTA07UJI');
-        $this->actingAs($pegawai)->get('/pegawai/entries?survey_id='.$survey->id.'&modified_from=2026-01-01&modified_to=2026-12-31')
-            ->assertOk()
-            ->assertSee('Pilih Rentang Waktu')
-            ->assertSee('RUTA07UJI');
+            ->assertRedirect('/pegawai/entri-papi/'.$entry->id);
 
-        $identifier = EntryAnomalyValidator::variableIdentifier($variable->name);
-        $this->actingAs($pegawai)->put('/pegawai/surveys/'.$survey->id.'/validation-formula', [
-            'validation_rules' => [
-                $identifier.' >= 0',
-                $identifier.' <= 5',
-                '',
-            ],
-        ])->assertRedirect();
-        $this->assertSame([$identifier.' >= 0', $identifier.' <= 5'], $survey->fresh()->validation_rules);
-        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$survey->id.'/variables')
+        $this->actingAs($admin)->get('/admin/surveys/'.$survey->id.'/variables')
             ->assertOk()
-            ->assertSee('Formula Validasi')
-            ->assertSee($identifier.' >= 0')
-            ->assertSee($identifier.' <= 5');
+            ->assertSee('Lanjutkan ke Alokasi Mitra')
+            ->assertDontSee('Formula Validasi');
 
-        $this->actingAs($pegawai)->get('/pegawai/entries/export?survey_id='.$survey->id.'&format=xlsx')->assertOk();
-        $this->actingAs($pegawai)->get('/pegawai/entries/export?survey_id='.$survey->id.'&format=csv')->assertOk();
-        $this->actingAs($pegawai)
-            ->post('/pegawai/surveys/'.$survey->id.'/status', ['status' => 'Selesai'])
-            ->assertRedirect('/pegawai/surveys/'.$survey->id);
-        $this->actingAs($pegawai)->get('/pegawai/surveys')->assertOk();
+        $this->actingAs($pegawai)->get('/pegawai/entri-papi/export?survey='.$survey->id)->assertOk()->assertDownload();
+        $this->actingAs($pegawai)->post('/admin/surveys/'.$survey->id.'/status', ['status' => 'Selesai'])->assertForbidden();
+        $this->actingAs($admin)
+            ->post('/admin/surveys/'.$survey->id.'/status', ['status' => 'Selesai'])
+            ->assertRedirect('/admin/surveys/'.$survey->id);
+        $this->actingAs($pegawai)->get('/pegawai/surveys')->assertOk()->assertSee('Survei Modul Pegawai');
         $this->assertSame('Selesai', $survey->fresh()->status);
     }
 
-    public function test_dashboard_alerts_mitra_who_are_far_behind_a_due_checkpoint(): void
+    public function test_dashboard_no_longer_shows_checkpoint_alerts(): void
     {
         $this->seed();
 
@@ -179,8 +182,7 @@ class PegawaiModuleFlowTest extends TestCase
         $this->actingAs($pegawai)
             ->get('/pegawai/dashboard?survey_id='.$survey->id)
             ->assertOk()
-            ->assertSee('Alert Mitra Tertinggal Checkpoint')
-            ->assertSee($assignment->mitra->name)
-            ->assertSee('Kurang 65 target');
+            ->assertDontSee('Alert Mitra Tertinggal Checkpoint')
+            ->assertDontSee('Kurang 65 target');
     }
 }

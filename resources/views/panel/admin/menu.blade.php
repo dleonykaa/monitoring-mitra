@@ -1,11 +1,15 @@
-<a class="{{ request()->is('admin/dashboard') ? 'active' : '' }}" href="/admin/dashboard">Dashboard</a>
-<a class="{{ request()->is('admin/users*') ? 'active' : '' }}" href="/admin/users">Manajemen Pengguna</a>
-<a class="{{ request()->is('admin/roles*') ? 'active' : '' }}" href="/admin/roles">Role & Hak Akses</a>
-<a class="{{ request()->is('admin/teams*') ? 'active' : '' }}" href="/admin/teams">Tim Kerja</a>
-<a class="{{ request()->is('admin/regions*') ? 'active' : '' }}" href="/admin/regions">Wilayah</a>
-<div class="nav-label">Monitoring</div>
-<a class="{{ request()->is('admin/monitoring/surveys*') ? 'active' : '' }}" href="/admin/monitoring/surveys">Monitoring Survei</a>
-<a class="{{ request()->is('admin/monitoring/wilayah*') ? 'active' : '' }}" href="/admin/monitoring/wilayah">Peta Wilayah</a>
-<a class="{{ request()->is('admin/monitoring/kinerja*') ? 'active' : '' }}" href="/admin/monitoring/kinerja">Kinerja Mitra</a>
-<div class="nav-label">Sistem</div>
-<a class="{{ request()->is('admin/logs*') ? 'active' : '' }}" href="/admin/logs">Log Aktivitas</a>
+@include('panel.partials.menu', ['menu' => [
+    null => [
+        ['admin/dashboard', '/admin/dashboard', 'Dashboard', 'dashboard'],
+        ['admin/monitoring*', '/admin/monitoring/progres', 'Monitoring', 'monitoring'],
+        ['admin/surveys*', '/admin/surveys', 'Survei', 'survey'],
+        ['admin/entri-papi*', '/admin/entri-papi', 'Data Entri PAPI', 'table'],
+        ['admin/mitra*', '/admin/mitra', 'Daftar Mitra', 'people'],
+    ],
+    'Admin' => [
+        ['admin/users*', '/admin/users', 'Manajemen Pengguna', 'user-cog'],
+    ],
+    'Sistem' => [
+        ['admin/logs*', '/admin/logs', 'Log Aktivitas', 'history'],
+    ],
+]])

@@ -10,4 +10,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command('app:send-daily-progress-reminder')->dailyAt('08:00')->withoutOverlapping(10);
 Schedule::command('app:send-deadline-reminder')->dailyAt('08:15')->withoutOverlapping(10);
+Schedule::command('app:send-checkpoint-alerts')->dailyAt('08:20')->withoutOverlapping(10);
 Schedule::command('app:sync-survey-status')->hourly()->withoutOverlapping(10);

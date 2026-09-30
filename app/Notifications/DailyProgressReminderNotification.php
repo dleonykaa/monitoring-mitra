@@ -2,15 +2,11 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\DatabaseMessage;
 use Illuminate\Notifications\Notification;
 
-class DailyProgressReminderNotification extends Notification implements ShouldQueue
+class DailyProgressReminderNotification extends Notification
 {
-    use Queueable;
-
     public function via(object $notifiable): array
     {
         return ['database'];

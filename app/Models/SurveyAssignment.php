@@ -10,6 +10,22 @@ class SurveyAssignment extends Model
 {
     protected $fillable = ['survey_id', 'mitra_id', 'target', 'current_progress'];
 
+    /**
+     * Persentase ruta selesai terhadap target mitra ini (0–100, satu desimal).
+     */
+    public function progressPercent(): float
+    {
+        return $this->target > 0 ? round(min(100, $this->current_progress / $this->target * 100), 1) : 0.0;
+    }
+
+    /**
+     * Capaian mitra masih di bawah persentase target checkpoint.
+     */
+    public function isBelow(SurveyCheckpoint $checkpoint): bool
+    {
+        return $this->target > 0 && $this->progressPercent() < $checkpoint->target_percentage;
+    }
+
     public function survey(): BelongsTo
     {
         return $this->belongsTo(Survey::class);

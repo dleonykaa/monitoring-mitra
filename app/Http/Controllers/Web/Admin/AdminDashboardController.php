@@ -4,38 +4,53 @@ namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
-use App\Models\District;
-use App\Models\Survey;
-use App\Models\SurveyAssignment;
-use App\Models\Team;
 use App\Models\User;
-use App\Models\Village;
+use App\Services\SurveyDashboardOverview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class AdminDashboardController extends Controller
 {
-    public function dashboard(): View
+    /**
+     * Sistem hanya mengenal tiga peran: admin, pegawai BPS, dan mitra.
+     *
+     * @var list<string>
+     */
+    private const ROLES = ['admin', 'pegawai_bps', 'mitra'];
+
+    /**
+     * Dashboard admin = ringkasan seluruh survei yang sama dengan dashboard pegawai.
+     */
+    public function dashboard(SurveyDashboardOverview $overview): View
     {
-        return view('panel.admin.dashboard', [
-            'totalUsers' => User::query()->count(),
-            'totalSurveys' => Survey::query()->count(),
-            'totalActivities' => ActivityLog::query()->count(),
-            'totalActiveUsers' => User::query()->where('is_active', true)->count(),
+        $summary = $overview->build();
+
+        return view('panel.dashboard', [
+            ...$summary,
+            'panelTitle' => 'Admin',
+            'menuView' => 'panel.admin.menu',
+            'base' => '/admin',
+            'canManage' => true,
         ]);
     }
 
     public function users(Request $request): View
     {
         $data = $request->validate([
-            'role' => ['nullable', 'in:all,pegawai_bps,mitra'],
+            'role' => ['nullable', Rule::in(['all', ...self::ROLES])],
+            'q' => ['nullable', 'string', 'max:100'],
         ]);
         $selectedRole = $data['role'] ?? 'pegawai_bps';
-        $users = User::query()->with('roles')->latest();
+        $search = trim($data['q'] ?? '');
+        $users = User::query()
+            ->with('roles')
+            ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
+                ->where('name', 'like', '%'.$search.'%')
+                ->orWhere('email', 'like', '%'.$search.'%')))
+            ->latest();
 
         if ($selectedRole !== 'all') {
             $users->role($selectedRole);
@@ -43,8 +58,15 @@ class AdminDashboardController extends Controller
 
         return view('panel.admin.users', [
             'users' => $users->paginate(15)->withQueryString(),
-            'roles' => Role::query()->where('guard_name', 'web')->get(),
+            'roles' => Role::query()->where('guard_name', 'web')->whereIn('name', self::ROLES)->get(),
             'selectedRole' => $selectedRole,
+            'search' => $search,
+            'roleCounts' => [
+                'admin' => User::query()->role('admin')->count(),
+                'pegawai_bps' => User::query()->role('pegawai_bps')->count(),
+                'mitra' => User::query()->role('mitra')->count(),
+                'all' => User::query()->count(),
+            ],
         ]);
     }
 
@@ -55,7 +77,7 @@ class AdminDashboardController extends Controller
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:20'],
             'password' => ['required', 'string', 'min:8'],
-            'role' => ['required', 'exists:roles,name'],
+            'role' => ['required', Rule::in(self::ROLES)],
         ]);
 
         $user = User::query()->create(collect($data)->except('role')->all() + ['is_active' => true]);
@@ -73,7 +95,7 @@ class AdminDashboardController extends Controller
             'email' => ['required', 'email', 'unique:users,email,'.$user->id],
             'phone' => ['nullable', 'string', 'max:20'],
             'is_active' => ['required', 'boolean'],
-            'role' => ['required', 'exists:roles,name'],
+            'role' => ['required', Rule::in(self::ROLES)],
             'password' => ['nullable', 'string', 'min:8'],
         ]);
 
@@ -88,143 +110,12 @@ class AdminDashboardController extends Controller
         return back();
     }
 
-    public function roles(): View
-    {
-        return view('panel.admin.roles', [
-            'roles' => Role::query()->with('permissions')->where('guard_name', 'web')->orderBy('name')->get(),
-            'permissions' => Permission::query()->where('guard_name', 'web')->orderBy('name')->get(),
-        ]);
-    }
-
-    public function updateRolePermissions(Request $request, Role $role): RedirectResponse
-    {
-        $data = $request->validate([
-            'permissions' => ['array'],
-            'permissions.*' => ['string', 'exists:permissions,name'],
-        ]);
-
-        $role->syncPermissions($data['permissions'] ?? []);
-        $this->log($request, 'admin.role.update', 'Memperbarui hak akses role '.$role->name);
-
-        return back()->with('status', 'Hak akses role diperbarui.');
-    }
-
     public function deleteUser(Request $request, User $user): RedirectResponse
     {
         $email = $user->email;
         $user->delete();
 
         $this->log($request, 'admin.user.delete', 'Menghapus user '.$email);
-
-        return back();
-    }
-
-    public function teams(): View
-    {
-        return view('panel.admin.teams', [
-            'teams' => Team::query()->withCount('users')->orderBy('name')->get(),
-        ]);
-    }
-
-    public function storeTeam(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-        ]);
-
-        Team::query()->create($data);
-        $this->log($request, 'admin.team.create', 'Membuat tim '.$data['name']);
-
-        return back()->with('status', 'Tim kerja ditambahkan.');
-    }
-
-    public function teamDetail(Team $team): View
-    {
-        return view('panel.admin.team-detail', [
-            'team' => $team->load('users'),
-            'pegawaiUsers' => User::query()->role('pegawai_bps')->orderBy('name')->get(),
-        ]);
-    }
-
-    public function assignPegawai(Request $request, Team $team): RedirectResponse
-    {
-        $data = $request->validate([
-            'user_id' => ['required', 'exists:users,id'],
-        ]);
-
-        $team->users()->syncWithoutDetaching([$data['user_id']]);
-        $this->log($request, 'admin.team.assign', 'Alokasi pegawai ke tim '.$team->name);
-
-        return back()->with('status', 'Pegawai dialokasikan ke tim.');
-    }
-
-    public function detachPegawai(Request $request, Team $team, User $user): RedirectResponse
-    {
-        $team->users()->detach($user->id);
-        $this->log($request, 'admin.team.detach', 'Melepas pegawai dari tim '.$team->name);
-
-        return back()->with('status', 'Pegawai dilepas dari tim.');
-    }
-
-    public function regions(): View
-    {
-        return view('panel.admin.regions', [
-            'districts' => District::query()->with('villages')->orderBy('name')->get(),
-        ]);
-    }
-
-    public function storeDistrict(Request $request): RedirectResponse
-    {
-        $data = $request->validate(['name' => ['required', 'string', 'unique:districts,name']]);
-        District::query()->create($data);
-        $this->log($request, 'admin.region.district', 'Menambah kecamatan '.$data['name']);
-
-        return back();
-    }
-
-    public function updateDistrict(Request $request, District $district): RedirectResponse
-    {
-        $data = $request->validate(['name' => ['required', 'string', 'unique:districts,name,'.$district->id]]);
-        $district->update($data);
-        $this->log($request, 'admin.region.district.update', 'Mengubah kecamatan '.$district->name);
-
-        return back();
-    }
-
-    public function storeVillage(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'district_id' => ['required', 'exists:districts,id'],
-            'name' => ['required', 'string'],
-            'type' => ['required', 'string'],
-        ]);
-
-        Village::query()->create($data);
-        $this->log($request, 'admin.region.village', 'Menambah wilayah '.$data['name']);
-
-        return back();
-    }
-
-    public function updateVillage(Request $request, Village $village): RedirectResponse
-    {
-        $data = $request->validate([
-            'district_id' => ['required', 'exists:districts,id'],
-            'name' => ['required', 'string'],
-            'type' => ['required', 'string'],
-        ]);
-
-        $village->update($data);
-        $this->log($request, 'admin.region.village.update', 'Mengubah wilayah '.$village->name);
-
-        return back();
-    }
-
-    public function deleteVillage(Request $request, Village $village): RedirectResponse
-    {
-        $name = $village->name;
-        $village->delete();
-        $this->log($request, 'admin.region.village.delete', 'Menghapus wilayah '.$name);
 
         return back();
     }
@@ -242,59 +133,6 @@ class AdminDashboardController extends Controller
             'users' => User::query()->orderBy('name')->get(),
             'filters' => $request->only(['user_id', 'action', 'date']),
         ]);
-    }
-
-    public function monitoringSurveys(): View
-    {
-        return view('panel.admin.monitoring-surveys', [
-            'surveys' => Survey::query()->withCount(['entries', 'assignments'])->latest()->paginate(20),
-        ]);
-    }
-
-    public function monitoringSurveyDetail(Survey $survey): View
-    {
-        $survey->load(['assignments.mitra', 'entries']);
-
-        return view('panel.admin.monitoring-survey-detail', compact('survey'));
-    }
-
-    public function monitoringWilayah(): View
-    {
-        return view('panel.admin.monitoring-wilayah', [
-            'districtProgress' => District::query()->withCount('entries')->orderBy('name')->get(),
-        ]);
-    }
-
-    public function monitoringKinerja(): View
-    {
-        return view('panel.admin.monitoring-kinerja', [
-            'rankings' => SurveyAssignment::query()->with(['mitra', 'survey'])->orderByDesc('current_progress')->paginate(20),
-        ]);
-    }
-
-    public function monitoringMitraProfile(User $user): View
-    {
-        $user->load('assignments.survey');
-
-        return view('panel.admin.monitoring-mitra-profile', ['mitra' => $user]);
-    }
-
-    public function exportKinerja()
-    {
-        $rows = SurveyAssignment::query()->with(['mitra', 'survey'])->get()->map(function (SurveyAssignment $item): array {
-            $percentage = $item->target > 0 ? round(($item->current_progress / $item->target) * 100, 2) : 0;
-
-            return [
-                'Mitra' => $item->mitra->name,
-                'Survei' => $item->survey->title,
-                'Progress' => $item->current_progress,
-                'Target' => $item->target,
-                'Persen' => $percentage,
-                'Kategori' => $percentage >= 80 ? 'Baik' : ($percentage >= 60 ? 'Cukup' : 'Buruk'),
-            ];
-        });
-
-        return Excel::download(new \App\Exports\EntriesExport($rows, ['Mitra', 'Survei', 'Progress', 'Target', 'Persen', 'Kategori']), 'laporan-kinerja-mitra.xlsx');
     }
 
     private function log(Request $request, string $action, string $description): void

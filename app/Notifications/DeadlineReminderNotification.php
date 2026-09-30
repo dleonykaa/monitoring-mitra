@@ -3,18 +3,12 @@
 namespace App\Notifications;
 
 use App\Models\Survey;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\DatabaseMessage;
 use Illuminate\Notifications\Notification;
 
-class DeadlineReminderNotification extends Notification implements ShouldQueue
+class DeadlineReminderNotification extends Notification
 {
-    use Queueable;
-
-    public function __construct(private readonly Survey $survey)
-    {
-    }
+    public function __construct(private readonly Survey $survey) {}
 
     public function via(object $notifiable): array
     {

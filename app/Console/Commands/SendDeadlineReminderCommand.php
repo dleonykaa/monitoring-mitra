@@ -10,15 +10,19 @@ class SendDeadlineReminderCommand extends Command
 {
     protected $signature = 'app:send-deadline-reminder';
 
-    protected $description = 'Send deadline reminders H-3 to mitra not reaching target';
+    protected $description = 'Kirim pengingat H-3 ke mitra yang belum mencapai target pada survei berjalan';
 
     public function handle(): int
     {
-        $surveys = Survey::query()->whereDate('end_date', now()->addDays(3)->toDateString())->with('assignments.mitra')->get();
+        $surveys = Survey::query()
+            ->where('status', 'Berjalan')
+            ->whereDate('end_date', now()->addDays(3)->toDateString())
+            ->with('assignments.mitra')
+            ->get();
 
         foreach ($surveys as $survey) {
             foreach ($survey->assignments as $assignment) {
-                if ($assignment->current_progress < $assignment->target) {
+                if ($assignment->current_progress < $assignment->target && $assignment->mitra?->is_active) {
                     $assignment->mitra->notify(new DeadlineReminderNotification($survey));
                 }
             }

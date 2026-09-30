@@ -1,4 +1,7 @@
-<a class="{{ request()->is('mitra/dashboard') ? 'active' : '' }}" href="/mitra/dashboard">Dashboard</a>
-<a class="{{ request()->is('mitra/surveys*') ? 'active' : '' }}" href="/mitra/surveys">Survei</a>
-<a class="{{ request()->is('mitra/entries*') ? 'active' : '' }}" href="/mitra/entries">Data Entri</a>
-<a class="{{ request()->is('mitra/updates*') ? 'active' : '' }}" href="/mitra/updates">Riwayat Update</a>
+@include('panel.partials.menu', ['menu' => [
+    null => [
+        ['mitra/dashboard', '/mitra/dashboard', 'Dashboard', 'dashboard'],
+        [['mitra/surveys*', 'mitra/entries*'], '/mitra/surveys', 'Daftar Survei', 'survey'],
+        ['mitra/data-entri*', '/mitra/data-entri', 'Data Entri', 'table'],
+    ],
+]])

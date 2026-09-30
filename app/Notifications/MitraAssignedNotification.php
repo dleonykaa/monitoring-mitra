@@ -3,19 +3,12 @@
 namespace App\Notifications;
 
 use App\Models\Survey;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\DatabaseMessage;
 use Illuminate\Notifications\Notification;
 
-class MitraAssignedNotification extends Notification implements ShouldQueue
+class MitraAssignedNotification extends Notification
 {
-    use Queueable;
-
-    public function __construct(private readonly Survey $survey)
-    {
-        $this->afterCommit();
-    }
+    public function __construct(private readonly Survey $survey) {}
 
     public function via(object $notifiable): array
     {
@@ -26,7 +19,7 @@ class MitraAssignedNotification extends Notification implements ShouldQueue
     {
         return new DatabaseMessage([
             'title' => 'Penugasan Survei Baru',
-            'message' => 'Anda ditugaskan ke survei '.$this->survey->title,
+            'message' => 'Anda dialokasikan ke survei '.$this->survey->title.'.',
             'survey_id' => $this->survey->id,
         ]);
     }
