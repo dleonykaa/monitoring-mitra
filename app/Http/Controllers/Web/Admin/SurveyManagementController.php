@@ -355,6 +355,12 @@ class SurveyManagementController extends Controller
         $this->ensureSurveyIsEditable($survey);
         abort_unless($assignment->survey_id === $survey->id, 404);
 
+        // Menghapus alokasi ikut menghapus entrinya, jadi isian mitra tidak boleh ikut hilang.
+        $filledCount = $assignment->entries()->where('entry_status', '!=', SurveyEntry::STATUS_OPEN)->count();
+        if ($filledCount > 0) {
+            return back()->withErrors(['mitra' => "Alokasi {$assignment->mitra?->name} tidak bisa dihapus karena mitra sudah mengisi {$filledCount} ruta (draft atau terkirim)."]);
+        }
+
         $assignment->delete();
         $survey->recalculateTarget();
 

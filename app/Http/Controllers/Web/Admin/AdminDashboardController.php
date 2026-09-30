@@ -85,7 +85,7 @@ class AdminDashboardController extends Controller
 
         $this->log($request, 'admin.user.create', 'Membuat user '.$user->email);
 
-        return back();
+        return back()->with('status', 'Akun '.$user->name.' dibuat.');
     }
 
     public function updateUser(Request $request, User $user): RedirectResponse
@@ -99,6 +99,13 @@ class AdminDashboardController extends Controller
             'password' => ['nullable', 'string', 'min:8'],
         ]);
 
+        if ($user->is($request->user()) && (! $data['is_active'] || $data['role'] !== 'admin')) {
+            return back()->withErrors(['role' => 'Anda tidak bisa menonaktifkan atau mengubah peran akun Anda sendiri.']);
+        }
+        if ($this->isLastActiveAdmin($user) && (! $data['is_active'] || $data['role'] !== 'admin')) {
+            return back()->withErrors(['role' => 'Minimal harus ada satu admin aktif.']);
+        }
+
         $user->update(collect($data)->except(['role', 'password'])->when(
             filled($data['password'] ?? null),
             fn ($payload) => $payload->put('password', $data['password'])
@@ -107,17 +114,33 @@ class AdminDashboardController extends Controller
 
         $this->log($request, 'admin.user.update', 'Memperbarui user '.$user->email);
 
-        return back();
+        return back()->with('status', 'Akun '.$user->name.' diperbarui.');
     }
 
+    /**
+     * Akun dihapus secara lunak: tidak bisa masuk lagi, tetapi riwayat alokasi dan entrinya tetap ada.
+     */
     public function deleteUser(Request $request, User $user): RedirectResponse
     {
+        if ($user->is($request->user())) {
+            return back()->withErrors(['role' => 'Anda tidak bisa menghapus akun Anda sendiri.']);
+        }
+        if ($this->isLastActiveAdmin($user)) {
+            return back()->withErrors(['role' => 'Minimal harus ada satu admin aktif.']);
+        }
+
         $email = $user->email;
         $user->delete();
 
         $this->log($request, 'admin.user.delete', 'Menghapus user '.$email);
 
-        return back();
+        return back()->with('status', 'Akun '.$email.' dihapus.');
+    }
+
+    private function isLastActiveAdmin(User $user): bool
+    {
+        return $user->hasRole('admin')
+            && User::query()->role('admin')->where('is_active', true)->whereKeyNot($user->id)->doesntExist();
     }
 
     public function logs(Request $request): View

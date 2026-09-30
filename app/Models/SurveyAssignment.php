@@ -31,9 +31,12 @@ class SurveyAssignment extends Model
         return $this->belongsTo(Survey::class);
     }
 
+    /**
+     * Akun mitra yang dihapus admin tetap terbaca agar riwayat alokasi dan entrinya utuh.
+     */
     public function mitra(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'mitra_id');
+        return $this->belongsTo(User::class, 'mitra_id')->withTrashed();
     }
 
     public function entries(): HasMany

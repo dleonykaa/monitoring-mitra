@@ -22,7 +22,7 @@ class SendDeadlineReminderCommand extends Command
 
         foreach ($surveys as $survey) {
             foreach ($survey->assignments as $assignment) {
-                if ($assignment->current_progress < $assignment->target && $assignment->mitra?->is_active) {
+                if ($assignment->current_progress < $assignment->target && $assignment->mitra?->is_active && ! $assignment->mitra->trashed()) {
                     $assignment->mitra->notify(new DeadlineReminderNotification($survey));
                 }
             }

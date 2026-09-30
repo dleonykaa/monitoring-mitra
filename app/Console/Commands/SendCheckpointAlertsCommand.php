@@ -29,7 +29,7 @@ class SendCheckpointAlertsCommand extends Command
 
             // Mitra CAPI yang belum punya akun SIMPROCA tidak bisa diberi notifikasi.
             $progress->below($checkpoint->survey, $checkpoint)
-                ->filter(fn (array $mitra): bool => (bool) $mitra['user']?->is_active)
+                ->filter(fn (array $mitra): bool => $mitra['user'] && $mitra['user']->is_active && ! $mitra['user']->trashed())
                 ->each(fn (array $mitra) => $mitra['user']->notify(new CheckpointMissedNotification($checkpoint, $mitra)));
 
             SurveyCheckpoint::query()->whereKey($surveyCheckpoints->modelKeys())->update(['notified_at' => now()]);
