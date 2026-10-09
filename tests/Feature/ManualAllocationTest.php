@@ -90,11 +90,14 @@ class ManualAllocationTest extends TestCase
         ]);
         $draft->assignments()->create(['mitra_id' => User::query()->role('mitra')->firstOrFail()->id, 'target' => 2]);
 
-        // Tombol hapus hanya ada pada baris survei Draft, dan hanya untuk admin.
+        // Tombol hapus hanya ada di detail survei Draft, dan hanya untuk admin; daftar survei hanya berisi tombol Detail.
         $this->actingAs($admin)->get('/admin/surveys?status=all')
             ->assertOk()
-            ->assertSee('aria-label="Hapus survei Survei Draft Dihapus"', false)
-            ->assertDontSee('aria-label="Hapus survei '.$running->title.'"', false);
+            ->assertDontSee('Hapus survei')
+            ->assertDontSee('Tandai selesai')
+            ->assertSee('href="/admin/surveys/'.$draft->id.'"', false);
+        $this->actingAs($admin)->get('/admin/surveys/'.$draft->id)->assertOk()->assertSee('aria-label="Hapus survei Survei Draft Dihapus"', false);
+        $this->actingAs($admin)->get('/admin/surveys/'.$running->id)->assertOk()->assertDontSee('aria-label="Hapus survei', false);
         $this->actingAs($pegawai)->get('/pegawai/surveys')->assertOk()->assertDontSee('Hapus survei');
         $this->actingAs($pegawai)->delete('/admin/surveys/'.$draft->id)->assertForbidden();
 

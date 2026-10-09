@@ -13,8 +13,8 @@ use Illuminate\Support\Str;
  * Menyusun progres survei PAPI dalam bentuk baris yang sama dengan data FASIH,
  * sehingga rekap per wilayah dan per mitra memakai satu tampilan.
  *
- * Satu ruta hasil alokasi = satu beban. Submit = entri Selesai, Draft = entri yang disimpan
- * mitra namun belum lengkap, Open = ruta yang belum disentuh atau sisa target tanpa wilayah.
+ * Satu ruta hasil alokasi = satu beban; hanya ruta yang sudah dialokasikan (punya wilayah) yang dihitung.
+ * Submit = entri Selesai, Draft = entri yang disimpan mitra namun belum lengkap, Open = ruta yang belum disentuh.
  */
 class PapiProgressRows
 {
@@ -58,20 +58,6 @@ class PapiProgressRows
             })
             ->values();
 
-        $unallocated = max(0, (int) $assignment->target - $assignment->entries->count());
-        if ($unallocated > 0) {
-            $rows->push($this->makeRow($assignment, [
-                'district_code' => self::UNMAPPED_DISTRICT,
-                'village_code' => self::UNMAPPED_DISTRICT.'000',
-                'sls_code' => self::UNMAPPED_DISTRICT.'0000000',
-                'sls_label' => 'Sisa target tanpa wilayah',
-                'total_region' => $unallocated,
-                'submit_count' => 0,
-                'draft_count' => 0,
-                'open_count' => $unallocated,
-            ]));
-        }
-
         return $rows;
     }
 
@@ -86,7 +72,6 @@ class PapiProgressRows
             'pencacah_name' => $assignment->mitra?->name,
             'email' => strtolower((string) $assignment->mitra?->email),
             'region_code' => $attributes['sls_code'],
-            'other_count' => 0,
             ...array_diff_key($attributes, ['sls_label' => true]),
         ]);
         $row->sls_label = $attributes['sls_label'];

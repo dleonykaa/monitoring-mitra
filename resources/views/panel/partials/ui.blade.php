@@ -9,13 +9,13 @@
        Status progres: dipakai sama persis di bar, legenda, dan angka pada semua halaman. */
     :root{--t-blue-bg:#dbeafe;--t-blue-fg:#1e40af;--t-green-bg:#dcfce7;--t-green-fg:#166534;--t-amber-bg:#fef3c7;--t-amber-fg:#92400e;--t-rose-bg:#ffe4e6;--t-rose-fg:#9f1239;--t-gray-bg:var(--soft);--t-gray-fg:var(--muted);
         --navy:#0b2447;--navy-muted:#b9cbe6;--navy-soft:#d5e1f3;--navy-chip:rgba(255,255,255,.14);--navy-track:rgba(255,255,255,.12);--navy-tint:#e8eef8;--navy-tint-fg:#0b2447;
-        --st-submit:#16a34a;--st-draft:#f59e0b;--st-open:#94a3b8;--st-other:#38bdf8;--st-late:#e11d48;
+        --st-submit:#16a34a;--st-draft:#f59e0b;--st-open:#94a3b8;--st-late:#e11d48;
         --st-submit-ink:#047857;--st-draft-ink:#b45309;--st-late-ink:#be123c}
     [data-theme="dark"]{--t-blue-bg:#1e3a5f;--t-blue-fg:#93c5fd;--t-green-bg:#0e3a2a;--t-green-fg:#86efac;--t-amber-bg:#3a2c0e;--t-amber-fg:#fcd34d;--t-rose-bg:#3a1620;--t-rose-fg:#fda4b4;
         --navy:#0f2a50;--navy-tint:#1b2c4a;--navy-tint-fg:#cbd9f0;--st-open:#64748b;
         --st-submit-ink:#4ade80;--st-draft-ink:#fbbf24;--st-late-ink:#fda4b4}
     .sw{width:10px;height:10px;border-radius:3px;flex:none;display:inline-block}
-    .sw.submit{background:var(--st-submit)}.sw.draft{background:var(--st-draft)}.sw.open{background:var(--st-open)}.sw.other{background:var(--st-other)}
+    .sw.submit{background:var(--st-submit)}.sw.draft{background:var(--st-draft)}.sw.open{background:var(--st-open)}
     .ink-submit{color:var(--st-submit-ink)!important}.ink-draft{color:var(--st-draft-ink)!important}
     .t-good{background:var(--t-green-bg);color:var(--t-green-fg)}.t-ok{background:var(--t-blue-bg);color:var(--t-blue-fg)}
     .t-warn{background:var(--t-amber-bg);color:var(--t-amber-fg)}.t-bad{background:var(--t-rose-bg);color:var(--t-rose-fg)}.t-none{background:var(--t-gray-bg);color:var(--t-gray-fg)}

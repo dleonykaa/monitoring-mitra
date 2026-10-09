@@ -6,7 +6,7 @@
 
 @push('head')
     <style>
-        .fx{--fx-submit:var(--st-submit);--fx-draft:var(--st-draft);--fx-open:var(--st-open);--fx-other:var(--st-other);
+        .fx{--fx-submit:var(--st-submit);--fx-draft:var(--st-draft);--fx-open:var(--st-open);
             --fx-submit-text:var(--st-submit-ink);--fx-draft-text:var(--st-draft-ink);--fx-open-text:var(--st-late-ink)}
 
         /* ---------- Header + ringkasan ---------- */
@@ -30,7 +30,6 @@
         .fx-status.st-run{background:#dbeafe;color:#1e40af}.fx-status.st-done{background:#dcfce7;color:#166534}.fx-status.st-draft{background:#fef3c7;color:#92400e}
         .fx-empty{margin-top:20px;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,.08);color:#dbe7f7;font-size:13.5px}
         .fx-empty a{color:#fff;font-weight:700;margin-left:6px}
-        .fx-legend.three{grid-template-columns:repeat(3,minmax(0,1fr))}
         .fx-meta{margin-top:5px;font-size:12.5px;color:var(--navy-muted);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
         .fx-meta b{color:#fff;font-weight:600}
         .fx-old{background:#fef3c7;color:#92400e;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700}
@@ -50,7 +49,7 @@
         .fx-bar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--navy-track)}
         .fx-bar i{display:block;height:100%}
         .fx-bar i + i{box-shadow:inset 2px 0 0 var(--navy)}
-        .fx-legend{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}
+        .fx-legend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
         .fx-legend div{min-width:0}
         .fx-legend .k{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--navy-muted);font-weight:600;white-space:nowrap}
         .fx-legend .v{font-size:17px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
@@ -59,7 +58,7 @@
         .fx-scope b{color:#fff}
         .fx-sched{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
         .fx-sched-chip{border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700}
-        .fx-sched-chip.ok{background:#dcfce7;color:#166534}.fx-sched-chip.late{background:#ffe4e6;color:#9f1239}
+        .fx-sched-chip.ok{background:#dcfce7;color:#166534}.fx-sched-chip.late{background:#ffe4e6;color:#9f1239}.fx-sched-chip.wait{background:rgba(255,255,255,.14);color:#dbe7f7}
 
         /* ---------- Panel import ---------- */
         .fx-import{margin-top:18px;background:var(--card);color:var(--text);border-radius:12px;padding:16px}
@@ -152,7 +151,6 @@
         .c-submit{color:var(--fx-submit-text);font-weight:600}
         .c-draft{color:var(--fx-draft-text);font-weight:600}
         .c-open.hot{color:var(--fx-open-text);font-weight:700}
-        .c-other{color:var(--muted)}
         .fx-table td.zero{color:var(--muted);font-weight:400;opacity:.7}
         .fx-prog{display:flex;align-items:center;gap:10px;justify-content:flex-end}
         .fx-minibar{width:84px;height:6px;border-radius:3px;background:var(--bar-bg);overflow:hidden;display:flex}
@@ -167,7 +165,6 @@
         }
         @media (max-width:880px){
             .fx-head{padding:18px 16px 20px}
-            .fx-legend{grid-template-columns:repeat(2,minmax(0,1fr))}
             .fx-big .val{font-size:32px}
             .fx-card-h{padding:14px 16px}
             .fx-search{flex:1 1 180px}
@@ -208,29 +205,35 @@
         .fx-pager .b:disabled{opacity:.45;cursor:not-allowed}
 
         /* ---------- Peringatan ---------- */
-        .fx-warn{margin-top:16px;padding:16px 20px 10px}
+        .fx-warn{margin-top:16px;padding:14px 18px 12px}
+        .fx-warn-h{display:flex;align-items:flex-start;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}
         .fx-warn-h h2{margin:0;font-size:15px;color:var(--brand-dark);display:flex;align-items:center;gap:8px}
         .fx-warn-h p{margin:3px 0 0;font-size:12px;color:var(--muted)}
         .fx-warn-count{border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;background:var(--t-rose-bg);color:var(--t-rose-fg)}
-        .fx-warn-list{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 28px}
-        .fx-warn-list li{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);min-width:0}
-        .fx-warn-list li.wide{grid-column:1 / -1;border-top:0}
-        .fx-warn-ico{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--t-rose-bg);color:var(--t-rose-fg)}
-        .fx-warn-ico.ok{background:var(--t-green-bg);color:var(--t-green-fg)}
-        .fx-warn-ico svg{width:15px;height:15px}
+        /* Tingkat: high = kurang jauh (merah), low = mendekati (kuning), ok = tercapai (hijau). */
+        .fx-warn .sev-high{--sev:var(--st-late);--sev-bg:var(--t-rose-bg);--sev-fg:var(--t-rose-fg)}
+        .fx-warn .sev-low{--sev:var(--st-draft);--sev-bg:var(--t-amber-bg);--sev-fg:var(--t-amber-fg)}
+        .fx-warn .sev-ok{--sev:var(--st-submit);--sev-bg:var(--t-green-bg);--sev-fg:var(--t-green-fg)}
+        .fx-warn .sev-wait{--sev:var(--st-open);--sev-bg:var(--t-gray-bg);--sev-fg:var(--t-gray-fg)}
+        .fx-warn-survey{display:flex;align-items:center;gap:12px;margin-top:10px;padding:8px 12px;border-radius:10px;background:var(--sev-bg);border-left:3px solid var(--sev)}
         .fx-warn-txt{flex:1 1 auto;min-width:0}
         .fx-warn-txt b{display:block;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .fx-warn-txt small{display:block;font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        /* Meter kecil: isi = capaian, garis tegak = target. */
-        .fx-meter{position:relative;flex:none;width:72px;height:6px;border-radius:3px;background:var(--bar-bg)}
-        .fx-warn-list li.wide .fx-meter{width:120px}
-        .fx-meter i{display:block;height:100%;border-radius:3px;min-width:2px}
-        .fx-meter i.late{background:var(--st-late)}.fx-meter i.warn{background:var(--st-draft)}.fx-meter i.ok{background:var(--st-submit)}
+        .fx-meter{position:relative;flex:none;width:120px;height:6px;border-radius:3px;background:var(--bar-bg)}
+        .fx-meter i{display:block;height:100%;border-radius:3px;min-width:2px;background:var(--sev)}
         .fx-meter em{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:1px;background:var(--brand-dark)}
-        .fx-warn-chip{flex:none;min-width:54px;text-align:center;border-radius:999px;padding:1px 9px;font-size:11.5px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;background:var(--t-amber-bg);color:var(--t-amber-fg)}
-        .fx-warn-chip.late{background:var(--t-rose-bg);color:var(--t-rose-fg)}
-        .fx-warn-chip.ok{background:var(--t-green-bg);color:var(--t-green-fg)}
-        @media (max-width:560px){.fx-warn-list{grid-template-columns:minmax(0,1fr)}.fx-meter,.fx-warn-list li.wide .fx-meter{width:48px}}
+        .fx-warn-chip{flex:none;min-width:50px;text-align:center;border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;background:var(--sev-bg);color:var(--sev-fg)}
+        .fx-warn-survey .fx-warn-chip{background:var(--card)}
+        /* Satu kolom menurun; kolom angka rata kanan agar mudah dibandingkan antarbaris. */
+        .fx-warn-list{list-style:none;margin:6px 0 0;padding:0}
+        .fx-warn-list li{display:grid;grid-template-columns:minmax(0,1fr) 110px 80px 64px;align-items:center;gap:12px;padding:7px 4px;border-bottom:1px solid var(--line)}
+        .fx-warn-list li:last-child{border-bottom:0}
+        .fx-warn-list li[hidden]{display:none}
+        .fx-warn-list b{min-width:0;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .fx-warn-num{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+        .fx-warn-more{display:block;margin:10px auto 0;padding:5px 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--brand);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+        .fx-warn-more:hover{background:var(--soft)}
+        @media (max-width:560px){.fx-warn-list li{grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px}.fx-meter{width:56px}}
         @media (prefers-reduced-motion:reduce){.fx *{transition:none!important}}
     </style>
 @endpush
@@ -253,7 +256,7 @@
     $currentParams = array_intersect_key($filters, array_flip(['mode', 'kecamatan', 'desa', 'sls', 'mitra']));
     $levelLabel = \App\Services\FasihProgressReport::LEVELS[$level];
     $isMitraLevel = $level === 'mitra';
-    $columnCount = $isCapi ? 10 : 9;
+    $columnCount = 9;
     $isMitraDetail = $mode === 'mitra' && $level === 'sls';
     $scopeLabel = end($breadcrumbs)['label'];
     $unit = $isCapi ? 'dokumen' : 'ruta';
@@ -374,43 +377,47 @@
                     <div class="sub"><b>{{ $fmt($totals['submit']) }}</b> dari {{ $fmt($totals['total']) }} {{ $unit }}</div>
                 </div>
                 <div>
-                    <div class="fx-bar" role="img" aria-label="Submit {{ $fmt($totals['submit']) }}, draft {{ $fmt($totals['draft']) }}, open {{ $fmt($totals['open']) }}{{ $isCapi ? ', lainnya '.$fmt($totals['other']) : '' }}">
+                    <div class="fx-bar" role="img" aria-label="Submit {{ $fmt($totals['submit']) }}, draft {{ $fmt($totals['draft']) }}, open {{ $fmt($totals['open']) }}">
                         <i style="width:{{ $share($totals['submit'], $totals['total']) }}%;background:var(--fx-submit)"></i>
                         <i style="width:{{ $share($totals['draft'], $totals['total']) }}%;background:var(--fx-draft)"></i>
                         <i style="width:{{ $share($totals['open'], $totals['total']) }}%;background:var(--fx-open)"></i>
-                        <i style="width:{{ $share($totals['other'], $totals['total']) }}%;background:var(--fx-other)"></i>
                     </div>
-                    <div class="fx-legend {{ $isCapi ? '' : 'three' }}">
-                        <div title="{{ $isCapi ? 'SUBMITTED BY Pencacah + APPROVED BY Pengawas' : 'Entri yang sudah dikirim mitra' }}">
+                    <div class="fx-legend">
+                        <div title="{{ $isCapi ? 'SUBMITTED BY Pencacah, APPROVED BY Pengawas, EDITED BY Admin Kabupaten, EDITED BY Pengawas, REVOKED BY Pengawas, SUBMITTED RESPONDENT' : 'Entri yang sudah dikirim mitra' }}">
                             <div class="k"><i class="sw submit"></i>Submit</div>
                             <div class="v">{{ $fmt($totals['submit']) }}<small>{{ $fmtPct($totals['percent']) }}</small></div>
                         </div>
-                        <div title="{{ $isCapi ? 'DRAFT' : 'Sudah diisi mitra, belum dikirim' }}">
+                        <div title="{{ $isCapi ? 'DRAFT + REJECTED BY Pengawas' : 'Sudah diisi mitra, belum dikirim' }}">
                             <div class="k"><i class="sw draft"></i>Draft</div>
                             <div class="v">{{ $fmt($totals['draft']) }}<small>{{ $fmtPct($share($totals['draft'], $totals['total'])) }}</small></div>
                         </div>
-                        <div title="{{ $isCapi ? 'OPEN + REJECTED BY Pengawas' : 'Ruta atau target yang belum diisi' }}">
+                        <div title="{{ $isCapi ? 'OPEN' : 'Ruta atau target yang belum diisi' }}">
                             <div class="k"><i class="sw open"></i>Open (sisa)</div>
                             <div class="v">{{ $fmt($totals['open']) }}<small>{{ $fmtPct($share($totals['open'], $totals['total'])) }}</small></div>
                         </div>
-                        @if ($isCapi)
-                            <div title="EDITED BY Admin Kabupaten, REVOKED BY Pengawas, SUBMITTED RESPONDENT, dll.">
-                                <div class="k"><i class="sw other"></i>Lainnya</div>
-                                <div class="v">{{ $fmt($totals['other']) }}<small>{{ $fmtPct($share($totals['other'], $totals['total'])) }}</small></div>
-                            </div>
-                        @endif
                     </div>
                     <div class="fx-scope">Cakupan <b>{{ $scopeLabel }}</b> · {{ $fmt($totals['mitra_count']) }} mitra · {{ $fmt($totals['sls_count']) }} SLS</div>
                     @php
-                        $isBehind = $selectedSurvey->isBehindSchedule((float) $totals['percent']);
+                        $isBehind = $selectedSurvey->isBehindSchedule((float) $surveyTotals['percent']);
+                        // Survei bercheckpoint dinilai dari checkpoint saja; sebelum yang pertama lewat, tampilkan checkpoint berikutnya.
+                        $upcomingCheckpoint = $passedCheckpoint ? null : $selectedSurvey->nextCheckpoint();
                     @endphp
                     <div class="fx-scope fx-sched">
-                        @if ($passedCheckpoint)
-                            Checkpoint {{ $passedCheckpoint->checkpoint_date->locale('id')->translatedFormat('d M') }}: target <b>{{ $passedCheckpoint->target_percentage }}%</b>, progres <b>{{ $fmtPct($totals['percent']) }}</b>
+                        {{-- Satu format untuk checkpoint maupun jadwal: "<patokan>: target X%, progres survei Y%". --}}
+                        <span>
+                            @if ($passedCheckpoint)
+                                Checkpoint {{ $passedCheckpoint->checkpoint_date->locale('id')->translatedFormat('d M') }}: target <b>{{ $passedCheckpoint->target_percentage }}%</b>, progres survei <b>{{ $fmtPct($surveyTotals['percent']) }}</b>
+                            @elseif ($upcomingCheckpoint)
+                                Checkpoint berikutnya {{ $upcomingCheckpoint->checkpoint_date->locale('id')->translatedFormat('d M') }}: target <b>{{ $upcomingCheckpoint->target_percentage }}%</b>, progres survei <b>{{ $fmtPct($surveyTotals['percent']) }}</b>
+                            @else
+                                Jadwal hari ini: target <b>{{ $fmtPct($selectedSurvey->elapsedPercent()) }}</b>, progres survei <b>{{ $fmtPct($surveyTotals['percent']) }}</b>
+                            @endif
+                        </span>
+                        @if (! $passedCheckpoint && $upcomingCheckpoint)
+                            <span class="fx-sched-chip wait">Belum jatuh tempo</span>
                         @else
-                            Jadwal: <b>{{ $fmtPct($selectedSurvey->elapsedPercent()) }}</b> waktu survei sudah berjalan, progres <b>{{ $fmtPct($totals['percent']) }}</b>
+                            <span class="fx-sched-chip {{ $isBehind ? 'late' : 'ok' }}">{{ $isBehind ? ($passedCheckpoint ? 'Di bawah target' : 'Tertinggal jadwal') : ($passedCheckpoint ? 'Target tercapai' : 'Sesuai jadwal') }}</span>
                         @endif
-                        <span class="fx-sched-chip {{ $isBehind ? 'late' : 'ok' }}">{{ $isBehind ? ($passedCheckpoint ? 'Di bawah target' : 'Tertinggal jadwal') : ($passedCheckpoint ? 'Target tercapai' : 'Sesuai jadwal') }}</span>
                     </div>
                 </div>
             </div>
@@ -536,7 +543,6 @@
                             <th data-type="num" class="num"><button type="button" class="sort">Submit</button></th>
                             <th data-type="num" class="num"><button type="button" class="sort">Draft</button></th>
                             <th data-type="num" class="num"><button type="button" class="sort">Open</button></th>
-                            @if ($isCapi)<th data-type="num" class="num"><button type="button" class="sort">Lainnya</button></th>@endif
                             <th data-type="num" class="num"><button type="button" class="sort">Progres</button></th>
                             <th class="plain" aria-hidden="true"></th>
                         </tr>
@@ -559,7 +565,6 @@
                                 <td class="num c-submit">{{ $fmt($totals['submit']) }}</td>
                                 <td class="num c-draft">{{ $fmt($totals['draft']) }}</td>
                                 <td class="num">{{ $fmt($totals['open']) }}</td>
-                                @if ($isCapi)<td class="num c-other">{{ $fmt($totals['other']) }}</td>@endif
                                 <td class="num"><span class="fx-pct {{ $tone($totals['percent']) }}">{{ $fmtPct($totals['percent']) }}</span></td>
                                 <td></td>
                             </tr>
@@ -579,64 +584,64 @@
 
     @if ($hasData)
         @php
-            $scheduleLate = $selectedSurvey->isBehindSchedule((float) $totals['percent']);
-            $warningCount = $belowCheckpoint->count() + ($scheduleLate ? 1 : 0);
+            // Patokan yang dibandingkan dengan progres: target checkpoint, atau porsi waktu bila belum ada checkpoint.
+            $benchmark = $selectedSurvey->scheduleBenchmark();
+            $benchmarkLabel = $passedCheckpoint ? 'target checkpoint' : 'jadwal';
+            $waitingCheckpoint = $passedCheckpoint ? null : $selectedSurvey->nextCheckpoint();
+            $scheduleLate = $selectedSurvey->isBehindSchedule((float) $surveyTotals['percent']);
+            // Merah bila capaian belum separuh patokan, kuning bila sudah lewat separuh tetapi belum mencapainya.
+            $surveyTone = match (true) {
+                $scheduleLate => $surveyTotals['percent'] < $benchmark / 2 ? 'high' : 'low',
+                $waitingCheckpoint !== null => 'wait',
+                default => 'ok',
+            };
+            $warningCount = $behindMitra->count() + ($scheduleLate ? 1 : 0);
+            $visibleMitra = 12;
         @endphp
         <section class="fx-card fx-warn" aria-labelledby="fxWarnTitle">
-            @php
-                // Patokan yang dibandingkan dengan progres: target checkpoint, atau porsi waktu bila belum ada checkpoint.
-                $benchmark = $passedCheckpoint ? (float) $passedCheckpoint->target_percentage : (float) $selectedSurvey->elapsedPercent();
-                $benchmarkLabel = $passedCheckpoint ? 'target checkpoint' : 'waktu berjalan';
-                $surveyGap = max(0, (int) ceil($totals['total'] * $benchmark / 100) - (int) $totals['submit']);
-            @endphp
             <div class="fx-warn-h">
                 <div>
                     <h2 id="fxWarnTitle">Peringatan @if ($warningCount > 0)<span class="fx-warn-count">{{ $fmt($warningCount) }}</span>@endif</h2>
                     <p>
                         @if ($passedCheckpoint)
-                            Capaian terhadap checkpoint {{ $passedCheckpoint->checkpoint_date->locale('id')->translatedFormat('d M Y') }}, target {{ $passedCheckpoint->target_percentage }}%.
+                            Capaian kumulatif terhadap checkpoint {{ $passedCheckpoint->checkpoint_date->locale('id')->translatedFormat('d M Y') }} (target {{ $passedCheckpoint->target_percentage }}%).
                         @else
-                            Posisi survei terhadap jadwal. Belum ada checkpoint yang lewat.
+                            @if ($waitingCheckpoint)
+                                Belum ada checkpoint yang lewat. Checkpoint berikutnya {{ $waitingCheckpoint->checkpoint_date->locale('id')->translatedFormat('d M Y') }} (target {{ $waitingCheckpoint->target_percentage }}%).
+                            @else
+                                Capaian kumulatif terhadap jadwal ({{ $fmtPct($benchmark) }} waktu berjalan). Survei ini tidak punya checkpoint.
+                            @endif
                         @endif
                     </p>
                 </div>
             </div>
-            <ul class="fx-warn-list">
-                <li class="wide">
-                    <span class="fx-warn-ico {{ $scheduleLate ? '' : 'ok' }}" aria-hidden="true">
-                        @if ($scheduleLate)
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/></svg>
-                        @else
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                        @endif
-                    </span>
-                    <span class="fx-warn-txt">
-                        <b>{{ $scheduleLate ? ($passedCheckpoint ? 'Survei di bawah target checkpoint' : 'Survei tertinggal jadwal') : ($passedCheckpoint ? 'Survei mencapai target checkpoint' : 'Survei sesuai jadwal') }}</b>
-                        <small>Progres {{ $fmtPct($totals['percent']) }} dari {{ $benchmarkLabel }} {{ $fmtPct($benchmark) }}{{ $scheduleLate ? ' · kurang '.$fmt($surveyGap).' '.$unit : '' }}</small>
-                    </span>
-                    <span class="fx-meter" role="img" aria-label="Progres {{ $fmtPct($totals['percent']) }}, {{ $benchmarkLabel }} {{ $fmtPct($benchmark) }}">
-                        <i class="{{ $scheduleLate ? 'late' : 'ok' }}" style="width:{{ min(100, $totals['percent']) }}%"></i>
-                        <em style="left:{{ min(100, $benchmark) }}%"></em>
-                    </span>
-                    <span class="fx-warn-chip {{ $scheduleLate ? 'late' : 'ok' }}">{{ $fmtPct($totals['percent']) }}</span>
-                </li>
-                @foreach ($belowCheckpoint as $mitra)
-                    @php
-                        $mitraGap = max(1, (int) ceil($mitra['target'] * $passedCheckpoint->target_percentage / 100) - $mitra['progress']);
-                    @endphp
-                    <li>
-                        <span class="fx-warn-txt">
+
+            <div class="fx-warn-survey sev-{{ $surveyTone }}">
+                <span class="fx-warn-txt">
+                    <b>{{ $scheduleLate ? ($passedCheckpoint ? 'Survei di bawah target checkpoint' : 'Survei tertinggal jadwal') : ($passedCheckpoint ? 'Survei mencapai target checkpoint' : ($waitingCheckpoint ? 'Checkpoint pertama belum jatuh tempo' : 'Survei sesuai jadwal')) }}</b>
+                </span>
+                <span class="fx-meter" role="img" aria-label="Progres {{ $fmtPct($surveyTotals['percent']) }}, {{ $benchmarkLabel }} {{ $fmtPct($benchmark) }}">
+                    <i style="width:{{ min(100, $surveyTotals['percent']) }}%"></i>
+                    <em style="left:{{ min(100, $benchmark) }}%"></em>
+                </span>
+                <span class="fx-warn-chip">{{ $fmtPct($surveyTotals['percent']) }}</span>
+            </div>
+
+            @if ($behindMitra->isNotEmpty())
+                <ul class="fx-warn-list" id="fxWarnList">
+                    @foreach ($behindMitra as $mitra)
+                        <li class="sev-{{ $mitra['severity'] }}" @if ($loop->index >= $visibleMitra) hidden data-extra @endif>
                             <b title="{{ $mitra['name'] }}">{{ $mitra['name'] }}</b>
-                            <small>{{ $fmt($mitra['progress']) }} dari {{ $fmt($mitra['target']) }} {{ $unit }} · kurang {{ $fmt($mitraGap) }}</small>
-                        </span>
-                        <span class="fx-meter" role="img" aria-label="Capaian {{ $fmtPct($mitra['percent']) }} dari target {{ $passedCheckpoint->target_percentage }}%">
-                            <i class="warn" style="width:{{ min(100, $mitra['percent']) }}%"></i>
-                            <em style="left:{{ $passedCheckpoint->target_percentage }}%"></em>
-                        </span>
-                        <span class="fx-warn-chip">{{ $fmtPct($mitra['percent']) }}</span>
-                    </li>
-                @endforeach
-            </ul>
+                            <span class="fx-warn-num">{{ $fmt($mitra['progress']) }}/{{ $fmt($mitra['target']) }} {{ $unit }}</span>
+                            <span class="fx-warn-num">kurang {{ $fmt($mitra['gap']) }}</span>
+                            <span class="fx-warn-chip">{{ $fmtPct($mitra['percent']) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+                @if ($behindMitra->count() > $visibleMitra)
+                    <button type="button" class="fx-warn-more" data-show-all="fxWarnList" data-label-more="Tampilkan semua ({{ $fmt($behindMitra->count()) }})" data-label-less="Tampilkan lebih sedikit" aria-expanded="false" aria-controls="fxWarnList">Tampilkan semua ({{ $fmt($behindMitra->count()) }})</button>
+                @endif
+            @endif
         </section>
     @endif
 </div>
@@ -645,6 +650,17 @@
 @push('scripts')
     <script>
         (function () {
+            // Daftar mitra yang panjang: sisa baris dibuka lewat tombol "Tampilkan semua".
+            document.querySelectorAll('[data-show-all]').forEach((button) => {
+                const list = document.getElementById(button.dataset.showAll);
+                button.addEventListener('click', () => {
+                    const expand = button.getAttribute('aria-expanded') !== 'true';
+                    list.querySelectorAll('[data-extra]').forEach((item) => { item.hidden = !expand; });
+                    button.setAttribute('aria-expanded', String(expand));
+                    button.textContent = expand ? button.dataset.labelLess : button.dataset.labelMore;
+                });
+            });
+
             const toggle = document.getElementById('fxImportToggle');
             const panel = document.getElementById('fxImport');
             toggle?.addEventListener('click', () => {

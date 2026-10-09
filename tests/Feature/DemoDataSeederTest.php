@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\SlsArea;
 use App\Models\SurveyAssignment;
 use App\Models\SurveyEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,9 +31,16 @@ class DemoDataSeederTest extends TestCase
             'entries',
             'entries as submitted_count' => fn ($query) => $query->where('entry_status', SurveyEntry::STATUS_SUBMITTED),
         ])->get()->each(function (SurveyAssignment $assignment): void {
-            $this->assertLessThanOrEqual($assignment->target, $assignment->entries_count);
+            // Target mitra sama persis dengan ruta yang dialokasikan.
+            $this->assertSame((int) $assignment->target, $assignment->entries_count);
             $this->assertSame($assignment->submitted_count, (int) $assignment->current_progress);
         });
+
+        // SLS ruta memakai nama dari master SLS desanya (mis. "RT 001 RW 001"), bukan kode rekaan.
+        $masterSls = SlsArea::query()->get()->map(fn (SlsArea $sls): string => $sls->village_id.'|'.$sls->name)->flip();
+        SurveyEntry::query()->get(['village_id', 'sls'])->each(
+            fn (SurveyEntry $entry) => $this->assertTrue($masterSls->has($entry->village_id.'|'.$entry->sls), "SLS '{$entry->sls}' tidak ada di master SLS desanya.")
+        );
 
         SurveyEntry::query()->where('entry_status', SurveyEntry::STATUS_SUBMITTED)->pluck('evidence_photo_path')
             ->each(fn (?string $path) => Storage::disk(SurveyEntry::PHOTO_DISK)->assertExists($path));

@@ -37,12 +37,6 @@
                     <span>{{ $survey->variables->count() }} variabel isian + foto bukti</span>
                 </div>
             </div>
-            @if ($canAddEntry)
-                <a class="b b-light" href="/mitra/surveys/{{ $survey->id }}/entries/create">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                    Isi ruta baru
-                </a>
-            @endif
         </div>
         <div class="ledger">
             <div class="big">
@@ -96,7 +90,7 @@
             </div>
             <div class="pnl-b">
                 @if ($items->isEmpty())
-                    <p style="margin:0;font-size:12.5px;color:var(--muted)">Tidak ada draft. {{ $canAddEntry ? 'Mulai dengan "Isi ruta baru".' : '' }}</p>
+                    <p style="margin:0;font-size:12.5px;color:var(--muted)">Tidak ada draft.</p>
                 @else
                     <div class="mt-entries">
                         @foreach ($items as $entry)

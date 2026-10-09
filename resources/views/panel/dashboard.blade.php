@@ -72,7 +72,6 @@
                 <i style="width:{{ $share($totals['submit'], $totals['total']) }}%;background:var(--st-submit)"></i>
                 <i style="width:{{ $share($totals['draft'], $totals['total']) }}%;background:var(--st-draft)"></i>
                 <i style="width:{{ $share($totals['open'], $totals['total']) }}%;background:var(--st-open)"></i>
-                <i style="width:{{ $share($totals['other'], $totals['total']) }}%;background:var(--st-other)"></i>
             </div>
             <p class="kpi-foot"><b>{{ $fmt($totals['submit']) }}</b> dari {{ $fmt($totals['total']) }} beban sudah submit</p>
         </article>
@@ -86,9 +85,6 @@
                 <div><dt><i class="sw submit"></i>Submit</dt><dd class="ink-submit">{{ $fmt($totals['submit']) }}</dd></div>
                 <div><dt><i class="sw draft"></i>Draft</dt><dd class="ink-draft">{{ $fmt($totals['draft']) }}</dd></div>
                 <div><dt><i class="sw open"></i>Open</dt><dd>{{ $fmt($totals['open']) }}</dd></div>
-                @if ($totals['other'] > 0)
-                    <div><dt><i class="sw other"></i>Lainnya</dt><dd>{{ $fmt($totals['other']) }}</dd></div>
-                @endif
             </dl>
             <p class="kpi-foot">Gabungan {{ $runningCount }} survei berjalan</p>
         </article>
@@ -278,37 +274,37 @@
 
         <div class="db-side">
 
-            <section class="db-card" aria-labelledby="staleTitle">
+            <section class="db-card" aria-labelledby="behindTitle">
                 <div class="db-card-h">
                     <div>
-                        <h2 id="staleTitle"><span class="db-h-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="18" cy="16" r="4"/><path d="M18 14.5V16l1 1"/></svg></span>Mitra belum update
-                            @if ($staleAssignments->isNotEmpty())<span class="db-count rose">{{ $staleAssignments->count() }}</span>@endif
+                        <h2 id="behindTitle"><span class="db-h-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Mitra di bawah target
+                            @if ($behindMitra->isNotEmpty())<span class="db-count rose">{{ $fmt($behindMitra->count()) }}</span>@endif
                         </h2>
-                        <p>Alokasi survei berjalan tanpa entri selesai dalam 3 hari{{ $lateAssignments > 0 ? '. '.$fmt($lateAssignments).' alokasi sudah lewat tenggat' : '' }}. {{ $staleAssignments->count() > 5 ? 'Ditampilkan 5 yang paling lama.' : '' }}</p>
+                        <p>Capaian kumulatif mitra dibanding target checkpoint terakhir, atau jadwal survei bila belum ada checkpoint.</p>
                     </div>
                 </div>
-                @if ($staleAssignments->isEmpty())
+                @if ($behindMitra->isEmpty())
                     <div class="db-allclear">
                         <span class="db-alert-ico green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
-                        <span><b>Tidak ada mitra yang tertinggal</b><span>Semua mitra mengirim entri dalam 3 hari terakhir.</span></span>
+                        <span><b>Tidak ada mitra yang tertinggal</b><span>Semua mitra sudah memenuhi target checkpoint atau jadwal survei.</span></span>
                     </div>
                 @else
-                    <ul class="db-people">
-                        @foreach ($staleAssignments->take(5) as $assignment)
-                            @php
-                                $lastUpdate = $assignment->last_entry_at ? \Illuminate\Support\Carbon::parse($assignment->last_entry_at) : null;
-                            @endphp
-                            <li>
+                    <ul class="db-people" id="dbBehindList">
+                        @foreach ($behindMitra as $mitra)
+                            <li @if ($loop->index >= 5) hidden data-extra @endif>
                                 <span style="min-width:0">
-                                    <strong>{{ $assignment->mitra->name }}</strong>
-                                    <span class="sub" title="{{ $assignment->survey->title }}">{{ $assignment->survey->title }} · {{ $fmt($assignment->current_progress) }}/{{ $fmt($assignment->target) }} ruta</span>
+                                    <strong title="{{ $mitra['name'] }}">{{ $mitra['name'] }}</strong>
+                                    <span class="sub" title="{{ $mitra['survey']->title }}">{{ $mitra['survey']->title }} · {{ $fmt($mitra['progress']) }}/{{ $fmt($mitra['target']) }} {{ $mitra['unit'] }} ({{ $fmtPct($mitra['percent']) }}) · {{ $mitra['survey']->passedCheckpoint() ? 'target' : 'jadwal' }} {{ $fmtPct($mitra['benchmark']) }}</span>
                                 </span>
-                                <span class="db-chip {{ $lastUpdate ? 'amber' : 'rose' }}">{{ $lastUpdate ? (int) $lastUpdate->diffInDays(now()).' hari' : 'Belum pernah' }}</span>
+                                <span class="db-chip {{ $mitra['severity'] === 'high' ? 'rose' : 'amber' }}">kurang {{ $fmt($mitra['gap']) }}</span>
                             </li>
                         @endforeach
                     </ul>
-                    @if ($staleAssignments->count() > 5)
-                        <div class="db-card-f"><span>{{ $fmt($staleAssignments->count() - 5) }} mitra lainnya belum update.</span></div>
+                    @if ($behindMitra->count() > 5)
+                        <div class="db-card-f">
+                            <span>{{ $fmt($behindMitra->count() - 5) }} mitra lainnya juga di bawah target.</span>
+                            <button type="button" class="db-more" data-show-all="dbBehindList" data-label-more="Tampilkan semua" data-label-less="Tampilkan lebih sedikit" aria-expanded="false" aria-controls="dbBehindList">Tampilkan semua</button>
+                        </div>
                     @endif
                 @endif
             </section>
@@ -320,6 +316,19 @@
 @push('scripts')
 <script>
 (function () {
+    // Daftar mitra di bawah target: sisa baris dibuka lewat tombol "Tampilkan semua".
+    document.querySelectorAll('[data-show-all]').forEach((button) => {
+        const list = document.getElementById(button.dataset.showAll);
+        const note = button.previousElementSibling;
+        button.addEventListener('click', () => {
+            const expand = button.getAttribute('aria-expanded') !== 'true';
+            list.querySelectorAll('[data-extra]').forEach((item) => { item.hidden = !expand; });
+            button.setAttribute('aria-expanded', String(expand));
+            button.textContent = expand ? button.dataset.labelLess : button.dataset.labelMore;
+            if (note) { note.hidden = expand; }
+        });
+    });
+
     // Filter status pada daftar capaian survei.
     const filter = document.getElementById('dbSurveyFilter');
     const list = document.getElementById('dbSurveyList');

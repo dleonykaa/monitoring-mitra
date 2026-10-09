@@ -46,13 +46,16 @@ class EndToEndModuleConnectionTest extends TestCase
 
         $this->actingAs($admin)->get('/admin/surveys/'.$survey->id.'/assignments')
             ->assertOk()
-            ->assertSee('Jalankan survei')
-            ->assertSee('Checkpoint');
+            ->assertSee('Simpan dan lanjutkan')
+            ->assertSee('href="/admin/surveys/'.$survey->id.'/checkpoints"', false)
+            ->assertDontSee('Jalankan survei');
 
-        // Checkpoint adalah langkah opsional setelah alokasi.
+        // Checkpoint adalah langkah opsional terakhir; survei dijalankan dari sini.
         $this->actingAs($admin)->get('/admin/surveys/'.$survey->id.'/checkpoints')
             ->assertOk()
-            ->assertSee('Belum ada checkpoint');
+            ->assertSee('Belum ada checkpoint')
+            ->assertSee('action="/admin/surveys/'.$survey->id.'/finish-setup"', false)
+            ->assertSee('Jalankan survei');
 
         $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/finish-setup')
             ->assertRedirect('/admin/surveys')

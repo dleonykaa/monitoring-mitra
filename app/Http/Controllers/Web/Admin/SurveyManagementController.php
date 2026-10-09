@@ -20,6 +20,7 @@ use App\Services\PapiAllocationImporter;
 use App\Services\SurveyProgressSummary;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -95,7 +96,8 @@ class SurveyManagementController extends Controller
         ]);
 
         return $isCapi
-            ? redirect('/admin/monitoring/progres?survey='.$survey->id)->with('status', 'Survei CAPI dibuat dan data FASIH pertama berhasil diimpor.')
+            ? redirect('/admin/monitoring/progres?survey='.$survey->id)->with('status', 'Survei CAPI dibuat dan data FASIH pertama berhasil diimpor.'
+                .($importer->skippedRows() > 0 ? " {$importer->skippedRows()} baris tanpa kecamatan terdaftar dilewati." : ''))
             : redirect('/admin/surveys/'.$survey->id.'/variables');
     }
 
@@ -332,23 +334,6 @@ class SurveyManagementController extends Controller
         return back()->with('status', "{$rutaCount} ruta dialokasikan ke {$mitra->name} (no urut ".($lastNumber + 1).'–'.($lastNumber + $rutaCount).').');
     }
 
-    public function updateAssignment(Request $request, Survey $survey, SurveyAssignment $assignment): RedirectResponse
-    {
-        $this->ensurePapiSurvey($survey);
-        $this->ensureSurveyIsEditable($survey);
-        abort_unless($assignment->survey_id === $survey->id, 404);
-
-        $data = $request->validate([
-            'target' => ['required', 'integer', 'min:1'],
-        ]);
-        $this->ensureTargetCoversEntries($assignment, (int) $data['target']);
-
-        $assignment->update(['target' => $data['target']]);
-        $survey->recalculateTarget();
-
-        return back()->with('status', 'Target mitra diperbarui.');
-    }
-
     public function deleteAssignment(Request $request, Survey $survey, SurveyAssignment $assignment): RedirectResponse
     {
         $this->ensurePapiSurvey($survey);
@@ -446,6 +431,8 @@ class SurveyManagementController extends Controller
             'target_percentage' => 'target capaian',
         ]);
 
+        $this->ensureCheckpointTargetIncreases($survey, $data['checkpoint_date'], (int) $data['target_percentage']);
+
         $checkpoint = SurveyCheckpoint::query()
             ->where('survey_id', $survey->id)
             ->whereDate('checkpoint_date', $data['checkpoint_date'])
@@ -457,6 +444,30 @@ class SurveyManagementController extends Controller
         ])->save();
 
         return back()->with('status', 'Checkpoint disimpan.');
+    }
+
+    /**
+     * Checkpoint diurutkan per tanggal dan targetnya harus naik: lebih tinggi dari checkpoint sebelumnya
+     * dan lebih rendah dari checkpoint sesudahnya. Checkpoint pada tanggal yang sama sedang diperbarui.
+     *
+     * @throws ValidationException
+     */
+    private function ensureCheckpointTargetIncreases(Survey $survey, string $date, int $target): void
+    {
+        $date = Carbon::parse($date)->toDateString();
+        $ordered = $survey->checkpoints()->get()->values();
+        $label = fn (SurveyCheckpoint $checkpoint): string => 'checkpoint '.($ordered->search(fn (SurveyCheckpoint $item): bool => $item->is($checkpoint)) + 1)
+            .' ('.$checkpoint->checkpoint_date->locale('id')->translatedFormat('d M Y').')';
+
+        $previous = $ordered->last(fn (SurveyCheckpoint $checkpoint): bool => $checkpoint->checkpoint_date->toDateString() < $date);
+        $next = $ordered->first(fn (SurveyCheckpoint $checkpoint): bool => $checkpoint->checkpoint_date->toDateString() > $date);
+
+        if ($previous && $target <= $previous->target_percentage) {
+            throw ValidationException::withMessages(['target_percentage' => "Target harus lebih dari {$previous->target_percentage}%, target {$label($previous)}."]);
+        }
+        if ($next && $target >= $next->target_percentage) {
+            throw ValidationException::withMessages(['target_percentage' => "Target harus kurang dari {$next->target_percentage}%, target {$label($next)}."]);
+        }
     }
 
     public function deleteCheckpoint(Request $request, Survey $survey, SurveyCheckpoint $checkpoint): RedirectResponse
@@ -520,17 +531,6 @@ class SurveyManagementController extends Controller
      *
      * @throws ValidationException
      */
-    private function ensureTargetCoversEntries(?SurveyAssignment $assignment, int $target): void
-    {
-        $entryCount = $assignment ? $assignment->entries()->count() : 0;
-
-        if ($target < $entryCount) {
-            throw ValidationException::withMessages([
-                'target' => "Target minimal {$entryCount} ruta karena mitra ini sudah memegang {$entryCount} ruta.",
-            ]);
-        }
-    }
-
     private function ensureSurveyIsEditable(Survey $survey): void
     {
         abort_if($survey->status === 'Selesai', 403, 'Survei selesai tidak dapat diedit.');

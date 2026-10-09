@@ -6,7 +6,6 @@
 
 @php
     $fmt = fn ($n) => number_format((int) $n, 0, ',', '.');
-    $initials = fn ($name) => collect(preg_split('/\s+/', trim($name)))->take(2)->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))->join('');
     $totalTarget = $survey->assignments->sum('target');
     $isDraft = $survey->status === 'Draft';
 @endphp
@@ -39,17 +38,13 @@
                                     <tr>
                                         <td>
                                             <div class="who">
-                                                <span class="avatar" aria-hidden="true">{{ $initials($assignment->mitra->name) }}</span>
                                                 <span><b>{{ $assignment->mitra->name }}</b></span>
                                             </div>
                                         </td>
                                         <td class="muted-cell" style="white-space:nowrap">{{ $fmt($assignment->current_progress) }} masuk</td>
-                                        <td>
-                                            <label class="sr-only" for="target-{{ $assignment->id }}">Target {{ $assignment->mitra->name }}</label>
-                                            <input id="target-{{ $assignment->id }}" form="ea{{ $assignment->id }}" type="number" min="1" name="target" value="{{ $assignment->target }}" required class="cell-input" style="width:110px">
-                                        </td>
+                                        {{-- Target selalu sama dengan jumlah ruta yang dialokasikan; ditambah lewat impor atau tambah manual. --}}
+                                        <td><b>{{ $fmt($assignment->target) }}</b></td>
                                         <td class="act">
-                                            <button form="ea{{ $assignment->id }}" type="submit" class="b b-soft b-sm">Simpan</button>
                                             <button form="da{{ $assignment->id }}" type="submit" class="b b-danger-soft b-sm b-icon" aria-label="Hapus alokasi {{ $assignment->mitra->name }}" title="Hapus alokasi">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
                                             </button>
@@ -60,7 +55,6 @@
                         </table>
                     </div>
                     @foreach ($survey->assignments as $assignment)
-                        <form id="ea{{ $assignment->id }}" method="POST" action="/admin/surveys/{{ $survey->id }}/assignments/{{ $assignment->id }}">@csrf @method('PUT')</form>
                         <form id="da{{ $assignment->id }}" method="POST" action="/admin/surveys/{{ $survey->id }}/assignments/{{ $assignment->id }}" data-confirm="Hapus alokasi {{ $assignment->mitra->name }}?">@csrf @method('DELETE')</form>
                     @endforeach
                 @endif
@@ -68,10 +62,11 @@
             <div class="pnl-f">
                 <a class="b b-ghost" href="/admin/surveys/{{ $survey->id }}/variables">Kembali ke form isian</a>
                 @if ($isDraft)
-                    <form method="POST" action="/admin/surveys/{{ $survey->id }}/finish-setup" data-confirm="Jalankan survei ini? Mitra yang dialokasikan akan langsung bisa mengisi progres.">
-                        @csrf
-                        <button type="submit" class="b b-primary" @disabled($survey->assignments->isEmpty())>Jalankan survei</button>
-                    </form>
+                    @if ($survey->assignments->isEmpty())
+                        <button type="button" class="b b-primary" disabled>Simpan dan lanjutkan</button>
+                    @else
+                        <a class="b b-primary" href="/admin/surveys/{{ $survey->id }}/checkpoints">Simpan dan lanjutkan</a>
+                    @endif
                 @else
                     <a class="b b-primary" href="/admin/surveys/{{ $survey->id }}">Kembali ke detail survei</a>
                 @endif

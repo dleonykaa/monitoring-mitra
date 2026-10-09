@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\District;
 use App\Models\FasihImport;
 use App\Models\Survey;
 use App\Models\User;
@@ -23,11 +24,26 @@ class FasihProgressImporter
     private const MAX_REPORTED_ERRORS = 10;
 
     /**
+     * Jumlah baris pada impor terakhir yang dilewati karena kode wilayahnya bukan kecamatan terdaftar.
+     */
+    private int $skippedRows = 0;
+
+    /**
+     * Hanya baris dengan kecamatan terdaftar yang disimpan; baris tingkat kabupaten atau kode
+     * wilayah lain yang tidak dikenal dilewati (jumlahnya lewat skippedRows()).
+     *
      * @throws ValidationException
      */
     public function import(UploadedFile $file, ?User $importedBy, Survey $survey): FasihImport
     {
-        $parsedRows = $this->parse($file->getRealPath());
+        $knownDistricts = District::query()->whereNotNull('code')->pluck('code')->flip();
+        $allRows = $this->parse($file->getRealPath());
+        $parsedRows = array_values(array_filter($allRows, fn (array $row): bool => $knownDistricts->has($row['district_code'])));
+        $this->skippedRows = count($allRows) - count($parsedRows);
+
+        if ($parsedRows === []) {
+            throw ValidationException::withMessages(['file' => 'Tidak ada baris dengan kode wilayah kecamatan yang dikenali.']);
+        }
 
         $fasihImport = DB::transaction(function () use ($file, $importedBy, $parsedRows, $survey): FasihImport {
             $fasihImport = FasihImport::query()->create([
@@ -58,10 +74,15 @@ class FasihProgressImporter
         return $fasihImport;
     }
 
+    public function skippedRows(): int
+    {
+        return $this->skippedRows;
+    }
+
     /**
      * Kolom namaPetugas bersifat opsional; bila ada, isinya dipakai sebagai nama pencacah.
      *
-     * @return list<array{user_id: int|null, fasih_user_id: string|null, username: string|null, pencacah_name: string|null, email: string, region_code: string, district_code: string, village_code: string, sls_code: string, total_region: int, open_count: int, draft_count: int, submit_count: int, other_count: int, status_breakdown: array<string, int>}>
+     * @return list<array{user_id: int|null, fasih_user_id: string|null, username: string|null, pencacah_name: string|null, email: string, region_code: string, district_code: string, village_code: string, sls_code: string, total_region: int, open_count: int, draft_count: int, submit_count: int, status_breakdown: array<string, int>}>
      *
      * @throws ValidationException
      */
@@ -103,8 +124,17 @@ class FasihProgressImporter
             }
 
             $statusCounts = $this->parseStatusBreakdown($value('statusBreakdown'));
+            $groupedCounts = null;
             if ($statusCounts === null) {
                 $errors[] = "Baris {$rowNumber}: format statusBreakdown tidak dikenali.";
+            } else {
+                $groupedCounts = $this->groupStatusCounts($statusCounts);
+                if ($groupedCounts['unknown'] !== []) {
+                    $errors[] = "Baris {$rowNumber}: status '".implode("', '", $groupedCounts['unknown'])."' belum dikenali.";
+                } elseif (ctype_digit($totalRegion) && (int) $totalRegion !== $groupedCounts['open'] + $groupedCounts['draft'] + $groupedCounts['submit']) {
+                    $sum = $groupedCounts['open'] + $groupedCounts['draft'] + $groupedCounts['submit'];
+                    $errors[] = "Baris {$rowNumber}: jumlah statusBreakdown ({$sum}) tidak sama dengan totalRegion ({$totalRegion}).";
+                }
             }
 
             if (count($errors) >= self::MAX_REPORTED_ERRORS) {
@@ -114,7 +144,6 @@ class FasihProgressImporter
                 continue;
             }
 
-            $groupedCounts = $this->groupStatusCounts($statusCounts);
             $total = (int) $totalRegion;
 
             $rows[] = [
@@ -131,7 +160,6 @@ class FasihProgressImporter
                 'open_count' => $groupedCounts['open'],
                 'draft_count' => $groupedCounts['draft'],
                 'submit_count' => $groupedCounts['submit'],
-                'other_count' => max(0, $total - $groupedCounts['open'] - $groupedCounts['draft'] - $groupedCounts['submit']),
                 'status_breakdown' => $statusCounts,
             ];
         }
@@ -204,12 +232,15 @@ class FasihProgressImporter
     }
 
     /**
+     * Status yang tidak terdaftar di config fasih.status_groups dikembalikan di kunci "unknown".
+     *
      * @param  array<string, int>  $statusCounts
-     * @return array{open: int, draft: int, submit: int}
+     * @return array{open: int, draft: int, submit: int, unknown: list<string>}
      */
     private function groupStatusCounts(array $statusCounts): array
     {
         $grouped = ['open' => 0, 'draft' => 0, 'submit' => 0];
+        $unknown = [];
         $statusToGroup = [];
         foreach (config('fasih.status_groups', []) as $group => $statuses) {
             foreach ($statuses as $status) {
@@ -221,10 +252,12 @@ class FasihProgressImporter
             $group = $statusToGroup[strtoupper($status)] ?? null;
             if ($group !== null && array_key_exists($group, $grouped)) {
                 $grouped[$group] += $count;
+            } elseif ($count > 0) {
+                $unknown[] = $status;
             }
         }
 
-        return $grouped;
+        return [...$grouped, 'unknown' => $unknown];
     }
 
     /**

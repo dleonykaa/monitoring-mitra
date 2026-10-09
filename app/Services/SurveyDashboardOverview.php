@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\District;
 use App\Models\FasihProgressRow;
 use App\Models\Survey;
-use App\Models\SurveyAssignment;
 use App\Models\SurveyEntry;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -28,6 +27,7 @@ class SurveyDashboardOverview
         private readonly SurveyProgressSummary $progressSummary,
         private readonly PapiProgressRows $papiRows,
         private readonly FasihProgressReport $report,
+        private readonly MitraCheckpointProgress $checkpointProgress,
     ) {}
 
     /**
@@ -35,17 +35,16 @@ class SurveyDashboardOverview
      *     surveys: Collection<int, Survey>,
      *     surveyStatusCounts: array<string, int>,
      *     surveyTypeCounts: array<string, int>,
-     *     runningTotals: array{total: int, open: int, draft: int, submit: int, other: int, percent: float, mitra_count: int, sls_count: int},
+     *     runningTotals: array{total: int, open: int, draft: int, submit: int, percent: float, mitra_count: int, sls_count: int},
      *     districtSummary: Collection<int, array<string, mixed>>,
      *     dailyEntries: Collection<int, array{date: Carbon, count: int}>,
-     *     lateAssignments: int,
-     *     staleAssignments: Collection<int, SurveyAssignment>,
+     *     behindMitra: Collection<int, array{survey: Survey, name: string, progress: int, target: int, percent: float, benchmark: float, gap: int, severity: string, unit: string}>,
      * }
      */
     public function build(): array
     {
         $surveys = $this->progressSummary->attach(
-            Survey::query()->with('latestFasihImport')->latest()->get()
+            Survey::query()->with(['latestFasihImport', 'checkpoints'])->latest()->get()
         );
         $running = $surveys->where('status', 'Berjalan')->values();
         $knownDistricts = District::query()->whereNotNull('code')->pluck('code')->flip();
@@ -63,17 +62,14 @@ class SurveyDashboardOverview
             'surveyStatusCounts' => collect(['Berjalan', 'Draft', 'Selesai'])
                 ->mapWithKeys(fn (string $status): array => [$status => $surveys->where('status', $status)->count()])
                 ->all(),
+            // Rincian jenis untuk kartu "N berjalan", jadi hanya survei berjalan yang dihitung.
             'surveyTypeCounts' => collect(Survey::TYPES)
-                ->mapWithKeys(fn (string $label, string $type): array => [$label => $surveys->where('type', $type)->count()])
+                ->mapWithKeys(fn (string $label, string $type): array => [$label => $running->where('type', $type)->count()])
                 ->all(),
             'runningTotals' => $this->report->totals($allRows),
             'districtSummary' => $this->districtSummary($mappedRows),
             'dailyEntries' => $this->dailyEntries($today),
-            'lateAssignments' => SurveyAssignment::query()
-                ->whereColumn('current_progress', '<', 'target')
-                ->whereHas('survey', fn ($query) => $query->where('status', 'Berjalan')->whereDate('end_date', '<', $today->toDateString()))
-                ->count(),
-            'staleAssignments' => $this->staleAssignments(),
+            'behindMitra' => $this->behindMitra($running),
         ];
     }
 
@@ -98,20 +94,20 @@ class SurveyDashboardOverview
 
     /**
      * Baris progres satu survei berjalan, dengan aturan yang sama seperti di Monitoring:
-     * baris CAPI di luar master wilayah dibuang, sisa target PAPI tanpa wilayah tetap dihitung.
+     * baris CAPI di luar master wilayah dibuang, PAPI hanya ruta hasil alokasi.
      *
      * @param  Collection<string, int>  $knownDistricts
      * @return Collection<int, FasihProgressRow>
      */
     private function progressRows(Survey $survey, Collection $knownDistricts): Collection
     {
-        if (! $survey->isCapi()) {
-            return $this->papiRows->forSurvey($survey);
-        }
+        $rows = match (true) {
+            ! $survey->isCapi() => $this->papiRows->forSurvey($survey),
+            $survey->latestFasihImport !== null => $survey->latestFasihImport->rows()->get(),
+            default => collect(),
+        };
 
-        return $survey->latestFasihImport
-            ? $survey->latestFasihImport->rows()->get()->filter(fn (FasihProgressRow $row): bool => $knownDistricts->has($row->district_code))->values()
-            : collect();
+        return $rows->filter(fn (FasihProgressRow $row): bool => $knownDistricts->has($row->district_code))->values();
     }
 
     /**
@@ -163,20 +159,22 @@ class SurveyDashboardOverview
     }
 
     /**
-     * Alokasi survei berjalan yang belum tuntas dan tidak menerima entri selesai dalam 3 hari terakhir.
+     * Mitra yang capaian kumulatifnya (seluruh wilayah alokasinya) tertinggal dari target checkpoint
+     * atau jadwal, gabungan semua survei berjalan; kekurangan terbanyak di urutan pertama.
      *
-     * @return Collection<int, SurveyAssignment>
+     * @param  Collection<int, Survey>  $running
+     * @return Collection<int, array{survey: Survey, name: string, progress: int, target: int, percent: float, benchmark: float, gap: int, severity: string, unit: string}>
      */
-    private function staleAssignments(): Collection
+    private function behindMitra(Collection $running): Collection
     {
-        return SurveyAssignment::query()
-            ->with(['survey', 'mitra'])
-            ->withMax(['entries as last_entry_at' => fn ($query) => $query->where('entry_status', SurveyEntry::STATUS_SUBMITTED)], 'submitted_at')
-            ->whereColumn('current_progress', '<', 'target')
-            ->whereHas('survey', fn ($query) => $query->where('status', 'Berjalan'))
-            ->get()
-            ->filter(fn (SurveyAssignment $assignment): bool => $assignment->last_entry_at === null || Carbon::parse($assignment->last_entry_at)->lte(now()->subDays(3)))
-            ->sortBy(fn (SurveyAssignment $assignment): string => (string) $assignment->last_entry_at)
+        return $running
+            ->flatMap(fn (Survey $survey): Collection => $this->checkpointProgress->behindSchedule($survey)
+                ->map(fn (array $mitra): array => [
+                    ...array_diff_key($mitra, ['user' => true]),
+                    'survey' => $survey,
+                    'unit' => $survey->isCapi() ? 'dokumen' : 'ruta',
+                ]))
+            ->sortBy([['gap', 'desc'], ['percent', 'asc']])
             ->values();
     }
 }

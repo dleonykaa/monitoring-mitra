@@ -65,7 +65,6 @@ class ProgressMonitoringController extends Controller
             $group['submit'],
             $group['draft'],
             $group['open'],
-            $group['other'],
             $group['percent'],
         ]);
 
@@ -73,7 +72,7 @@ class ProgressMonitoringController extends Controller
             ...($isMitraLevel
                 ? ['Nama Pencacah', 'Mitra (email)', 'Jumlah SLS']
                 : ['Kode', FasihProgressReport::LEVELS[$data['level']], 'Mitra']),
-            'Beban', 'Submit', 'Draft', 'Open', 'Lainnya', 'Progres Submit (%)',
+            'Beban', 'Submit', 'Draft', 'Open', 'Progres Submit (%)',
         ];
 
         $fileName = 'progres-'.Str::slug($data['selectedSurvey']->title).'-per-'.$data['level'].'-'.now()->format('Ymd-Hi').'.xlsx';
@@ -104,8 +103,11 @@ class ProgressMonitoringController extends Controller
             'description' => "Mengimpor progres FASIH {$fasihImport->file_name} ({$fasihImport->row_count} baris) untuk survei {$survey->title}",
         ]);
 
+        $skipped = $importer->skippedRows();
+
         return redirect('/admin/monitoring/progres?survey='.$survey->id)
-            ->with('status', "Import berhasil: {$fasihImport->row_count} baris dari {$fasihImport->file_name}.");
+            ->with('status', "Import berhasil: {$fasihImport->row_count} baris dari {$fasihImport->file_name}."
+                .($skipped > 0 ? " {$skipped} baris tanpa kecamatan terdaftar dilewati." : ''));
     }
 
     public function destroy(Request $request, FasihImport $fasihImport): RedirectResponse
@@ -170,13 +172,10 @@ class ProgressMonitoringController extends Controller
             default => $this->papiRows->forSurvey($selectedSurvey),
         };
 
-        // Wilayah di luar master (mis. kode tingkat kabupaten dari FASIH) tidak ditampilkan sebagai baris.
-        // Untuk CAPI baris itu dibuang; untuk PAPI isinya sisa target tanpa wilayah yang tetap dihitung di total.
+        // Wilayah di luar master (mis. kode tingkat kabupaten dari FASIH) tidak ditampilkan dan tidak dihitung.
         $knownDistricts = District::query()->pluck('code')->flip();
         $isMapped = fn (FasihProgressRow $row): bool => $knownDistricts->has($row->district_code);
-        if ($selectedSurvey?->isCapi()) {
-            $allRows = $allRows->filter($isMapped)->values();
-        }
+        $allRows = $allRows->filter($isMapped)->values();
         $this->report->registerSlsLabels($allRows);
 
         $mode = $filters['mode'] ?? 'wilayah';
@@ -189,7 +188,7 @@ class ProgressMonitoringController extends Controller
         };
 
         $scopedRows = $this->applyFilters($allRows, $filters);
-        $groupRows = $mode === 'wilayah' ? $scopedRows->filter($isMapped)->values() : $scopedRows;
+        $groupRows = $scopedRows;
         $mitraNames = $this->report->groupBy($allRows, 'mitra')->pluck('name', 'key');
 
         // Tampilan wilayah bisa dibuka bertingkat dari tingkat saat ini sampai SLS; mitra tiap SLS tampil di kolomnya.
@@ -211,6 +210,8 @@ class ProgressMonitoringController extends Controller
             'level' => $level,
             'filters' => $filters,
             'totals' => $this->report->totals($scopedRows),
+            // Checkpoint dan jadwal dinilai dari akumulasi seluruh survei, bukan dari cakupan wilayah/mitra yang sedang dibuka.
+            'surveyTotals' => $this->report->totals($allRows),
             'groups' => $groups,
             'breadcrumbs' => $this->breadcrumbs($filters, $mode, $mitraNames),
             ...$this->dailyEntries($selectedSurvey, (int) ($filters['minggu'] ?? 0)),
@@ -265,18 +266,16 @@ class ProgressMonitoringController extends Controller
     }
 
     /**
-     * Checkpoint terakhir yang sudah lewat beserta mitra yang capaiannya masih di bawah targetnya,
-     * diurutkan dari capaian terendah.
+     * Checkpoint terakhir yang sudah lewat beserta mitra yang capaian kumulatifnya tertinggal dari
+     * patokan survei (checkpoint, atau jadwal bila belum ada checkpoint); kekurangan terbanyak di atas.
      *
-     * @return array{passedCheckpoint: SurveyCheckpoint|null, belowCheckpoint: Collection<int, array{name: string, progress: int, target: int, percent: float}>}
+     * @return array{passedCheckpoint: SurveyCheckpoint|null, behindMitra: Collection<int, array{name: string, progress: int, target: int, percent: float, benchmark: float, gap: int, severity: string}>}
      */
     private function checkpointStatus(?Survey $survey): array
     {
-        $checkpoint = $survey?->passedCheckpoint();
-
         return [
-            'passedCheckpoint' => $checkpoint,
-            'belowCheckpoint' => $checkpoint ? $this->checkpointProgress->below($survey, $checkpoint) : collect(),
+            'passedCheckpoint' => $survey?->passedCheckpoint(),
+            'behindMitra' => $survey ? $this->checkpointProgress->behindSchedule($survey) : collect(),
         ];
     }
 

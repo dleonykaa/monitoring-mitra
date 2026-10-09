@@ -46,7 +46,6 @@
     <td class="num c-submit {{ $group['submit'] ? '' : 'zero' }}" data-sort="{{ $group['submit'] }}">{{ $fmt($group['submit']) }}</td>
     <td class="num c-draft {{ $group['draft'] ? '' : 'zero' }}" data-sort="{{ $group['draft'] }}">{{ $fmt($group['draft']) }}</td>
     <td class="num c-open {{ $openShare >= 50 ? 'hot' : '' }} {{ $group['open'] ? '' : 'zero' }}" data-sort="{{ $group['open'] }}">{{ $fmt($group['open']) }}</td>
-    @if ($isCapi)<td class="num c-other {{ $group['other'] ? '' : 'zero' }}" data-sort="{{ $group['other'] }}">{{ $fmt($group['other']) }}</td>@endif
     <td class="num" data-sort="{{ $group['percent'] }}">
         <div class="fx-prog">
             <span class="fx-minibar" aria-hidden="true">

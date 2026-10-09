@@ -124,31 +124,10 @@ class MitraPanelController extends Controller
         return view('panel.mitra.survey-detail', [
             'assignment' => $assignment,
             'entries' => $entries,
-            'statusCounts' => $this->statusCounts($assignment, $entries),
-            'canAddEntry' => $this->hasUnallocatedSlot($assignment),
+            'statusCounts' => $this->statusCounts($entries),
             'passedCheckpoint' => $assignment->survey->passedCheckpoint(),
             'nextCheckpoint' => $assignment->survey->nextCheckpoint(),
         ]);
-    }
-
-    public function createEntry(Request $request, Survey $survey): View|RedirectResponse
-    {
-        $assignment = $this->assignmentForSurvey($request, $survey);
-        if (! $this->hasUnallocatedSlot($assignment)) {
-            return redirect('/mitra/surveys/'.$survey->id)->withErrors(['entry' => 'Seluruh target sudah memiliki entri. Lanjutkan entri Open atau Draft yang ada.']);
-        }
-
-        return $this->entryFormView($assignment, new SurveyEntry);
-    }
-
-    public function storeEntry(Request $request, Survey $survey): RedirectResponse
-    {
-        $assignment = $this->assignmentForSurvey($request, $survey);
-        if (! $this->hasUnallocatedSlot($assignment)) {
-            return redirect('/mitra/surveys/'.$survey->id)->withErrors(['entry' => 'Seluruh target sudah memiliki entri. Lanjutkan entri Open atau Draft yang ada.']);
-        }
-
-        return $this->persistEntry($request, $assignment, new SurveyEntry);
     }
 
     public function editEntry(Request $request, SurveyEntry $entry): View
@@ -283,24 +262,18 @@ class MitraPanelController extends Controller
     }
 
     /**
-     * Open mencakup entri alokasi yang belum disentuh ditambah sisa target yang belum punya entri.
+     * Mitra hanya mengerjakan ruta hasil alokasi, jadi Open adalah ruta alokasi yang belum disentuh.
      *
      * @param  Collection<int, SurveyEntry>  $entries
      * @return array{open: int, draft: int, submitted: int}
      */
-    private function statusCounts(SurveyAssignment $assignment, Collection $entries): array
+    private function statusCounts(Collection $entries): array
     {
         return [
-            'open' => $entries->where('entry_status', SurveyEntry::STATUS_OPEN)->count() + max(0, (int) $assignment->target - $entries->count()),
+            'open' => $entries->where('entry_status', SurveyEntry::STATUS_OPEN)->count(),
             'draft' => $entries->where('entry_status', SurveyEntry::STATUS_DRAFT)->count(),
             'submitted' => $entries->where('entry_status', SurveyEntry::STATUS_SUBMITTED)->count(),
         ];
-    }
-
-    private function hasUnallocatedSlot(SurveyAssignment $assignment): bool
-    {
-        return $assignment->survey->status === 'Berjalan'
-            && $assignment->entries()->count() < (int) $assignment->target;
     }
 
     /**

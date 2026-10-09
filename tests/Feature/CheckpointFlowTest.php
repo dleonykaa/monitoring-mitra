@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Survey;
+use App\Models\SurveyAssignment;
+use App\Models\SurveyEntry;
 use App\Models\User;
+use App\Models\Village;
 use App\Notifications\CheckpointMissedNotification;
 use Database\Seeders\RegionSeeder;
 use Database\Seeders\RolePermissionSeeder;
@@ -13,6 +16,39 @@ use Tests\TestCase;
 class CheckpointFlowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_checkpoints_are_numbered_and_targets_must_increase_by_date(): void
+    {
+        [$admin] = $this->users(1);
+        $survey = $this->survey($admin);
+        $url = '/admin/surveys/'.$survey->id.'/checkpoints';
+        $day = fn (int $offset): string => now()->addDays($offset)->toDateString();
+
+        $this->actingAs($admin)->from($url)->post($url, ['checkpoint_date' => $day(1), 'target_percentage' => 30])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->from($url)->post($url, ['checkpoint_date' => $day(5), 'target_percentage' => 70])->assertSessionHasNoErrors();
+
+        // Checkpoint sesudahnya harus lebih tinggi dari sebelumnya; sama besar juga ditolak.
+        $this->actingAs($admin)->from($url)->post($url, ['checkpoint_date' => $day(6), 'target_percentage' => 70])
+            ->assertSessionHasErrors(['target_percentage' => 'Target harus lebih dari 70%, target checkpoint 2 ('.now()->addDays(5)->locale('id')->translatedFormat('d M Y').').']);
+        // Disisipkan di tengah: harus di antara checkpoint sebelum dan sesudahnya.
+        $this->actingAs($admin)->from($url)->post($url, ['checkpoint_date' => $day(3), 'target_percentage' => 80])
+            ->assertSessionHasErrors(['target_percentage' => 'Target harus kurang dari 70%, target checkpoint 2 ('.now()->addDays(5)->locale('id')->translatedFormat('d M Y').').']);
+        $this->actingAs($admin)->from($url)->post($url, ['checkpoint_date' => $day(3), 'target_percentage' => 20])
+            ->assertSessionHasErrors('target_percentage');
+        $this->assertSame(2, $survey->checkpoints()->count());
+
+        $this->actingAs($admin)->from($url)->post($url, ['checkpoint_date' => $day(3), 'target_percentage' => 50])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->from($url)->post($url, ['checkpoint_date' => $day(6), 'target_percentage' => 90])->assertSessionHasNoErrors();
+        // Memperbarui tanggal yang sama tetap dibatasi tetangganya.
+        $this->actingAs($admin)->from($url)->post($url, ['checkpoint_date' => $day(5), 'target_percentage' => 95])->assertSessionHasErrors('target_percentage');
+
+        $this->assertSame([30, 50, 70, 90], $survey->checkpoints()->pluck('target_percentage')->all());
+        $this->actingAs($admin)->get($url)
+            ->assertOk()
+            ->assertSeeInOrder(['Checkpoint 1', '30%', 'Checkpoint 2', '50%', 'Checkpoint 3', '70%', 'Checkpoint 4', '90%'], false)
+            ->assertSee('Tambah checkpoint 5')
+            ->assertSee('Harus lebih dari 90% (target checkpoint 4).');
+    }
 
     public function test_admin_manages_checkpoints_within_survey_period(): void
     {
@@ -79,8 +115,8 @@ class CheckpointFlowTest extends TestCase
     {
         [$admin, $behind, $onTrack] = $this->users(3);
         $survey = $this->survey($admin);
-        $survey->assignments()->create(['mitra_id' => $behind->id, 'target' => 10, 'current_progress' => 3]);
-        $survey->assignments()->create(['mitra_id' => $onTrack->id, 'target' => 10, 'current_progress' => 6]);
+        $this->allocate($survey, $behind, 10, 3);
+        $this->allocate($survey, $onTrack, 10, 6);
         $survey->recalculateTarget();
         $survey->checkpoints()->create(['checkpoint_date' => now()->subDay()->toDateString(), 'target_percentage' => 50]);
         $survey->checkpoints()->create(['checkpoint_date' => now()->addDays(2)->toDateString(), 'target_percentage' => 90]);
@@ -100,8 +136,30 @@ class CheckpointFlowTest extends TestCase
         $this->actingAs($admin)->get('/admin/monitoring/progres?survey='.$survey->id)
             ->assertOk()
             ->assertSee('Di bawah target')
-            ->assertSeeInOrder(['Peringatan', 'Survei di bawah target checkpoint', $behind->name, 'Capaian 30,0%'])
-            ->assertDontSee('Capaian 60,0%');
+            ->assertSeeInOrder(['Peringatan', 'Survei di bawah target checkpoint', 'fxWarnList', $behind->name, '3/10 ruta', 'kurang 2', '30,0%'])
+            ->assertDontSee('6/10 ruta')
+            ->assertDontSee('data-show-all="fxWarnList"', false);
+    }
+
+    public function test_monitoring_warning_colours_mitra_by_gap_and_collapses_long_list(): void
+    {
+        $users = $this->users(15);
+        $admin = array_shift($users);
+        $mitra = $users;
+        $survey = $this->survey($admin);
+        // Target 60%: 1/10 (10%) belum separuh target -> merah; 13 mitra 4/10 (40%) mendekati -> kuning.
+        foreach ($mitra as $index => $user) {
+            $this->allocate($survey, $user, 10, $index === 0 ? 1 : 4);
+        }
+        $survey->recalculateTarget();
+        $survey->checkpoints()->create(['checkpoint_date' => now()->subDay()->toDateString(), 'target_percentage' => 60]);
+
+        $response = $this->actingAs($admin)->get('/admin/monitoring/progres?survey='.$survey->id)->assertOk();
+
+        $response->assertSeeInOrder(['class="sev-high"', $mitra[0]->name, '1/10 ruta', 'kurang 5', 'class="sev-low"'], false)
+            ->assertSee('Tampilkan semua (14)');
+        // 12 baris pertama tampil, 2 sisanya disembunyikan sampai tombol ditekan.
+        $this->assertSame(2, substr_count($response->getContent(), 'hidden data-extra'));
     }
 
     public function test_capi_checkpoint_alerts_use_fasih_progress(): void
@@ -121,7 +179,7 @@ class CheckpointFlowTest extends TestCase
         $row = fn (User $user, string $sls, int $total, int $submit): array => [
             'user_id' => $user->id, 'email' => strtolower($user->email), 'username' => $user->email,
             'region_code' => '3101010001'.$sls.'00', 'district_code' => '3101010', 'village_code' => '3101010001', 'sls_code' => '3101010001'.$sls,
-            'total_region' => $total, 'open_count' => $total - $submit, 'draft_count' => 0, 'submit_count' => $submit, 'other_count' => 0,
+            'total_region' => $total, 'open_count' => $total - $submit, 'draft_count' => 0, 'submit_count' => $submit,
             'status_breakdown' => [],
         ];
         $import->rows()->create($row($behind, '0001', 10, 2));
@@ -146,6 +204,14 @@ class CheckpointFlowTest extends TestCase
         $this->actingAs($admin)->get('/admin/monitoring/progres?survey='.$survey->id)
             ->assertOk()
             ->assertSeeInOrder(['Peringatan', $behind->name, '20,0%']);
+
+        // Membuka SLS yang progresnya 90% tidak mengubah penilaian checkpoint: survei tetap 13 dari 30 (43,3%).
+        $this->actingAs($admin)->get('/admin/monitoring/progres?survey='.$survey->id.'&kecamatan=3101010&desa=3101010001&sls=31010100010003')
+            ->assertOk()
+            ->assertSeeInOrder(['Progres submit', '90,0%'])
+            ->assertSeeInOrder(['target <b>50%</b>, progres survei <b>43,3%</b>', 'Di bawah target'], false)
+            ->assertSeeInOrder(['Survei di bawah target checkpoint', '43,3%', $behind->name, '20,0%'])
+            ->assertDontSee('Target tercapai');
     }
 
     /**
@@ -161,6 +227,32 @@ class CheckpointFlowTest extends TestCase
 
             return $user;
         })->all();
+    }
+
+    /**
+     * Alokasi ruta seperti hasil impor: setiap ruta punya wilayah; sebagian sudah selesai.
+     */
+    private function allocate(Survey $survey, User $mitra, int $ruta, int $submitted): SurveyAssignment
+    {
+        $village = Village::query()->with('district')->firstOr(function (): Village {
+            $this->seed(RegionSeeder::class);
+
+            return Village::query()->with('district')->firstOrFail();
+        });
+        $assignment = $survey->assignments()->create(['mitra_id' => $mitra->id, 'target' => $ruta, 'current_progress' => $submitted]);
+        foreach (range(1, $ruta) as $number) {
+            $survey->entries()->create([
+                'survey_assignment_id' => $assignment->id,
+                'district_id' => $village->district_id,
+                'village_id' => $village->id,
+                'sls' => 'RT 001 RW 00'.$assignment->id,
+                'no_urut_ruta' => (string) $number,
+                'entry_status' => $number <= $submitted ? SurveyEntry::STATUS_SUBMITTED : SurveyEntry::STATUS_OPEN,
+                'submitted_at' => $number <= $submitted ? now() : null,
+            ]);
+        }
+
+        return $assignment;
     }
 
     private function survey(User $admin): Survey

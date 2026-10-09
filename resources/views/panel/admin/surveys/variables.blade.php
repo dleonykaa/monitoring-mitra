@@ -96,7 +96,7 @@
                 <div class="pnl-h">
                     <div>
                         <h2>Template spreadsheet</h2>
-                        <p>Baris 1 judul blok, baris 2 nama kolom, baris 3 contoh entrian, seperti format SUSENAS.</p>
+                        <p>Baris 1 judul blok, baris 2 nama kolom, baris 3 contoh entrian.</p>
                     </div>
                 </div>
                 <div class="pnl-b">

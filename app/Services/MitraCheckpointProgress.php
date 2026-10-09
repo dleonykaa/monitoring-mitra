@@ -37,6 +37,30 @@ class MitraCheckpointProgress
     }
 
     /**
+     * Mitra yang capaian kumulatifnya tertinggal menurut aturan Survey::isBehindSchedule: di bawah target
+     * checkpoint terakhir yang sudah lewat, atau tertinggal dari porsi waktu bila belum ada checkpoint.
+     * `gap` adalah jumlah yang masih kurang untuk mencapai patokan tersebut. `severity` bernilai "high"
+     * bila capaian belum separuh patokan (kurang jauh), selain itu "low" (mendekati).
+     *
+     * @return Collection<int, array{user: User|null, name: string, progress: int, target: int, percent: float, benchmark: float, gap: int, severity: string}>
+     */
+    public function behindSchedule(Survey $survey): Collection
+    {
+        $benchmark = $survey->scheduleBenchmark();
+
+        return $this->forSurvey($survey)
+            ->filter(fn (array $mitra): bool => $mitra['target'] > 0 && $survey->isBehindSchedule($mitra['percent']))
+            ->map(fn (array $mitra): array => [
+                ...$mitra,
+                'benchmark' => $benchmark,
+                'gap' => max(1, (int) ceil($mitra['target'] * $benchmark / 100) - $mitra['progress']),
+                'severity' => $mitra['percent'] < $benchmark / 2 ? 'high' : 'low',
+            ])
+            ->sortBy([['gap', 'desc'], ['percent', 'asc']])
+            ->values();
+    }
+
+    /**
      * @return Collection<int, array{user: User|null, name: string, progress: int, target: int, percent: float}>
      */
     private function papi(Survey $survey): Collection

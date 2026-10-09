@@ -10,7 +10,7 @@ class FasihProgressRow extends Model
     protected $fillable = [
         'fasih_import_id', 'user_id', 'fasih_user_id', 'username', 'pencacah_name', 'email',
         'region_code', 'district_code', 'village_code', 'sls_code',
-        'total_region', 'open_count', 'draft_count', 'submit_count', 'other_count',
+        'total_region', 'open_count', 'draft_count', 'submit_count',
         'status_breakdown',
     ];
 
@@ -21,7 +21,6 @@ class FasihProgressRow extends Model
             'open_count' => 'integer',
             'draft_count' => 'integer',
             'submit_count' => 'integer',
-            'other_count' => 'integer',
             'status_breakdown' => 'array',
         ];
     }

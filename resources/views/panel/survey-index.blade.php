@@ -112,33 +112,8 @@
                                     <td class="num"><span class="pct {{ $rowTone }}">{{ $hasTarget ? $fmtPct($survey->progress_percent) : '–' }}</span></td>
                                     <td><span class="bdg bdg-dot {{ $statusBadge[$survey->status] ?? 'bdg-gray' }}">{{ $survey->status }}</span></td>
                                     <td class="act">
-                                        @if ($survey->status === 'Berjalan')
-                                            <a class="b b-soft b-sm" href="{{ $base }}/monitoring/progres?survey={{ $survey->id }}">Monitoring</a>
-                                        @endif
-                                        @if ($canManage && $survey->status === 'Berjalan')
-                                            <form method="POST" action="/admin/surveys/{{ $survey->id }}/status" data-confirm="Tandai survei {{ $survey->title }} selesai? Survei akan terkunci dan tidak muncul lagi di Monitoring." style="display:inline">
-                                            @csrf
-                                            <input type="hidden" name="status" value="Selesai">
-                                            <button type="submit" class="b b-soft b-sm">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                                                Tandai selesai
-                                            </button>
-                                            </form>
-                                        @endif
-                                        @if ($canManage && $survey->status === 'Draft' && ! $survey->isCapi())
-                                            <a class="b b-primary b-sm" href="/admin/surveys/{{ $survey->id }}/{{ $survey->total_target > 0 ? 'assignments' : 'variables' }}">Lanjutkan setup</a>
-                                        @else
-                                            <a class="b b-soft b-sm" href="{{ $base }}/surveys/{{ $survey->id }}">Detail</a>
-                                        @endif
-                                        @if ($canManage && $survey->status === 'Draft')
-                                            <form method="POST" action="/admin/surveys/{{ $survey->id }}" style="display:inline" data-confirm="Hapus survei draft {{ $survey->title }}? Form isian, alokasi mitra, dan checkpoint-nya ikut terhapus dan tidak bisa dikembalikan.">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="b b-danger-soft b-sm b-icon" aria-label="Hapus survei {{ $survey->title }}" title="Hapus survei draft">
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
-                                                </button>
-                                            </form>
-                                        @endif
+                                        {{-- Aksi lain (monitoring, tandai selesai, setup, hapus draft) ada di halaman detail survei. --}}
+                                        <a class="b b-soft b-sm" href="{{ $base }}/surveys/{{ $survey->id }}">Detail</a>
                                     </td>
                                 </tr>
                             @endforeach

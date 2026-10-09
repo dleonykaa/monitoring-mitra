@@ -92,11 +92,13 @@
     .db-allclear b{display:block;font-size:13px;color:var(--text)}
     .db-allclear span{font-size:12px;color:var(--muted)}
 
-    /* ---------- Mitra belum update ---------- */
+    /* ---------- Mitra di bawah target ---------- */
     .db-people{list-style:none;margin:0;padding:0 18px 12px;display:grid}
     .db-people li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
     .db-people li:last-of-type{border-bottom:0}
     .db-people li[hidden]{display:none!important}
+    .db-more{padding:3px 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--brand);font:inherit;font-size:12px;font-weight:600;cursor:pointer;margin-left:auto}
+    .db-more:hover{background:var(--soft)}
     .db-people strong{display:block;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .db-people .sub{display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 

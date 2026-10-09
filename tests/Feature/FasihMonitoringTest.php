@@ -144,7 +144,8 @@ class FasihMonitoringTest extends TestCase
             'status' => 'Berjalan',
         ]);
         $assignment = $papi->assignments()->create(['mitra_id' => $mitra->id, 'target' => 4, 'current_progress' => 1]);
-        foreach (['submitted', 'draft'] as $status) {
+        // Empat ruta alokasi: 1 selesai, 1 draft, 2 belum disentuh.
+        foreach (['submitted', 'draft', 'open', 'open'] as $status) {
             $papi->entries()->create([
                 'survey_assignment_id' => $assignment->id,
                 'district_id' => $district->id,
@@ -181,7 +182,7 @@ class FasihMonitoringTest extends TestCase
         $papi->entries()->where('entry_status', 'submitted')->update(['submitted_at' => now()->subDays(5)]);
         $this->actingAs($this->admin)->get('/admin/monitoring/progres?survey='.$papi->id.'&mode=mitra')
             ->assertOk()
-            ->assertSee('waktu survei sudah berjalan')
+            ->assertSee('Jadwal hari ini: target')
             ->assertSeeInOrder(['Progres per Mitra', 'Peringatan'])
             ->assertDontSee('Belum update');
 
@@ -319,10 +320,9 @@ class FasihMonitoringTest extends TestCase
         $this->assertSame('3101020001', $row->village_code);
         $this->assertSame('31010200010006', $row->sls_code);
         $this->assertSame(173, $row->total_region);
-        $this->assertSame(2, $row->open_count);
-        $this->assertSame(22, $row->draft_count);
-        $this->assertSame(148, $row->submit_count);
-        $this->assertSame(1, $row->other_count);
+        $this->assertSame(0, $row->open_count);
+        $this->assertSame(24, $row->draft_count);
+        $this->assertSame(149, $row->submit_count);
         $this->assertSame(1, $row->status_breakdown['EDITED BY Admin Kabupaten']);
         $this->assertNull($row->user_id);
 
@@ -369,7 +369,9 @@ class FasihMonitoringTest extends TestCase
             ->assertOk()
             ->assertSee('Progres per Mitra')
             ->assertSee($mitra->name)
-            ->assertDontSee('a@example.com');
+            // Tabel hanya memuat mitra SLS ini; kartu Peringatan tetap menilai seluruh survei.
+            ->assertViewHas('groups', fn ($groups): bool => $groups->pluck('key')->doesntContain('a@example.com'))
+            ->assertViewHas('behindMitra', fn ($behind): bool => $behind->pluck('name')->contains('a@example.com'));
 
         $this->actingAs($this->admin)->get($this->url().'&mode=mitra')
             ->assertOk()
@@ -438,10 +440,10 @@ class FasihMonitoringTest extends TestCase
 
     public function test_unknown_region_code_is_left_out_of_monitoring(): void
     {
-        $this->importRows([
+        $this->actingAs($this->admin)->post('/admin/monitoring/progres/import', ['survey_id' => $this->survey->id, 'file' => $this->csvFile([
             $this->csvLine('x@example.com', '3101000000000000', 3, 'SUBMITTED RESPONDENT:2 | DRAFT:1'),
             $this->csvLine('a@example.com', '3101020001000600', 10, 'APPROVED BY Pengawas:4 | OPEN:6'),
-        ]);
+        ])])->assertSessionHas('status', 'Import berhasil: 1 baris dari fasih_progress.csv. 1 baris tanpa kecamatan terdaftar dilewati.');
 
         $this->actingAs($this->admin)->get($this->url())
             ->assertOk()
@@ -453,10 +455,63 @@ class FasihMonitoringTest extends TestCase
             ->assertOk()
             ->assertDontSee('x@example.com');
 
-        // Data mentah tetap tersimpan utuh.
-        $row = FasihProgressRow::query()->where('email', 'x@example.com')->sole();
-        $this->assertSame(2, $row->other_count);
-        $this->assertSame(1, $row->draft_count);
+        // Baris tanpa kecamatan terdaftar tidak disimpan dan tidak ikut target survei.
+        $this->assertFalse(FasihProgressRow::query()->where('email', 'x@example.com')->exists());
+        $this->assertSame(1, FasihImport::query()->sole()->row_count);
+        $this->assertSame(10, $this->survey->refresh()->total_target);
+    }
+
+    public function test_file_with_only_unknown_region_codes_is_rejected(): void
+    {
+        $this->actingAs($this->admin)->from($this->url())
+            ->post('/admin/monitoring/progres/import', ['survey_id' => $this->survey->id, 'file' => $this->csvFile([
+                $this->csvLine('x@example.com', '3101000000000000', 3, 'DRAFT:3'),
+            ])])
+            ->assertSessionHasErrors(['file' => 'Tidak ada baris dengan kode wilayah kecamatan yang dikenali.']);
+
+        $this->assertSame(0, FasihImport::query()->count());
+    }
+
+    public function test_every_fasih_status_is_grouped_so_counts_match_total_region(): void
+    {
+        $this->importRows([
+            $this->csvLine('a@example.com', '3101020001000600', 21, 'OPEN:1 | DRAFT:2 | REJECTED BY Pengawas:3 | SUBMITTED BY Pencacah:1 | APPROVED BY Pengawas:2 | EDITED BY Admin Kabupaten:3 | EDITED BY Pengawas:4 | REVOKED BY Pengawas:2 | SUBMITTED RESPONDENT:3'),
+        ]);
+
+        $row = FasihProgressRow::query()->sole();
+        $this->assertSame(1, $row->open_count);
+        $this->assertSame(5, $row->draft_count);
+        $this->assertSame(15, $row->submit_count);
+        $this->assertSame($row->total_region, $row->open_count + $row->draft_count + $row->submit_count);
+
+        $this->actingAs($this->admin)->get($this->url())
+            ->assertOk()
+            ->assertSeeInOrder(['Progres submit', '71,4%', 'dari 21 dokumen'])
+            ->assertDontSee('Lainnya');
+    }
+
+    public function test_row_whose_breakdown_does_not_match_total_region_rejects_the_file(): void
+    {
+        $this->actingAs($this->admin)->from($this->url())
+            ->post('/admin/monitoring/progres/import', ['survey_id' => $this->survey->id, 'file' => $this->csvFile([
+                $this->csvLine('a@example.com', '3101020001000600', 10, 'OPEN:10'),
+                $this->csvLine('a@example.com', '3101020001000800', 12, 'OPEN:4 | DRAFT:5'),
+            ])])
+            ->assertSessionHasErrors(['file' => 'Baris 3: jumlah statusBreakdown (9) tidak sama dengan totalRegion (12).']);
+
+        $this->assertSame(0, FasihImport::query()->count());
+        $this->assertSame(0, FasihProgressRow::query()->count());
+    }
+
+    public function test_unknown_fasih_status_rejects_the_file(): void
+    {
+        $this->actingAs($this->admin)->from($this->url())
+            ->post('/admin/monitoring/progres/import', ['survey_id' => $this->survey->id, 'file' => $this->csvFile([
+                $this->csvLine('a@example.com', '3101020001000600', 10, 'OPEN:8 | DIBATALKAN SISTEM:2'),
+            ])])
+            ->assertSessionHasErrors(['file' => "Baris 2: status 'DIBATALKAN SISTEM' belum dikenali."]);
+
+        $this->assertSame(0, FasihImport::query()->count());
     }
 
     public function test_latest_import_is_shown_and_older_import_remains_available(): void

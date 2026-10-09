@@ -74,8 +74,25 @@ class Survey extends Model
     }
 
     /**
+     * Persentase yang seharusnya sudah tercapai sekarang: target checkpoint terakhir yang sudah lewat.
+     * Survei bercheckpoint yang checkpoint pertamanya belum lewat belum punya patokan (0).
+     * Survei tanpa checkpoint memakai porsi waktu survei yang sudah berjalan.
+     */
+    public function scheduleBenchmark(): float
+    {
+        $checkpoint = $this->passedCheckpoint();
+
+        return match (true) {
+            $checkpoint !== null => (float) $checkpoint->target_percentage,
+            $this->checkpoints->isNotEmpty() => 0.0,
+            default => $this->elapsedPercent(),
+        };
+    }
+
+    /**
      * Survei berjalan dianggap tertinggal bila progresnya di bawah target checkpoint terakhir yang sudah lewat.
-     * Tanpa checkpoint, patokannya porsi waktu yang sudah berjalan dengan toleransi 10 poin.
+     * Bila survei punya checkpoint, hanya checkpoint yang dinilai; sebelum yang pertama lewat belum ada yang tertinggal.
+     * Tanpa checkpoint sama sekali, patokannya porsi waktu yang sudah berjalan dengan toleransi 10 poin.
      */
     public function isBehindSchedule(float $progressPercent): bool
     {
@@ -85,9 +102,11 @@ class Survey extends Model
 
         $checkpoint = $this->passedCheckpoint();
 
-        return $checkpoint
-            ? $progressPercent < $checkpoint->target_percentage
-            : $progressPercent + 10 < $this->elapsedPercent();
+        return match (true) {
+            $checkpoint !== null => $progressPercent < $checkpoint->target_percentage,
+            $this->checkpoints->isNotEmpty() => false,
+            default => $progressPercent + 10 < $this->elapsedPercent(),
+        };
     }
 
     public function typeLabel(): string

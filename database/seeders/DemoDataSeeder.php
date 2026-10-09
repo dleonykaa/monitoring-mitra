@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\ActivityLog;
 use App\Models\District;
+use App\Models\SlsArea;
 use App\Models\Survey;
 use App\Models\SurveyAssignment;
 use App\Models\SurveyCheckpoint;
@@ -18,6 +19,16 @@ use Illuminate\Support\Facades\Storage;
 class DemoDataSeeder extends Seeder
 {
     private Collection $districts;
+
+    /**
+     * SLS dari master (nama seperti "RT 001 RW 001"), dibagikan satu per alokasi mitra.
+     */
+    private Collection $slsPool;
+
+    /**
+     * @var array<int, SlsArea>
+     */
+    private array $slsByAssignment = [];
 
     /**
      * Mengisi data palsu (survei, alokasi mitra, entri, checkpoint, notifikasi, log
@@ -37,6 +48,13 @@ class DemoDataSeeder extends Seeder
         $this->districts = District::query()->with('villages')->get();
         if ($this->districts->isEmpty()) {
             $this->command?->warn('Tidak ada kecamatan. Jalankan RegionSeeder dulu.');
+
+            return;
+        }
+
+        $this->slsPool = SlsArea::query()->with('village')->get()->filter(fn (SlsArea $sls): bool => $sls->village !== null)->shuffle()->values();
+        if ($this->slsPool->isEmpty()) {
+            $this->command?->warn('Tidak ada master SLS. Jalankan SlsAreaSeeder dulu.');
 
             return;
         }
@@ -123,6 +141,10 @@ class DemoDataSeeder extends Seeder
                 for ($n = 0; $n < $count; $n++) {
                     $this->makeSubmittedEntry($survey, $assignment, $mitra, $variables, $n, $data['title'] === 'SUSENAS');
                 }
+                // Sisa target tetap berupa ruta hasil alokasi (punya wilayah) yang belum disentuh mitra.
+                for ($n = $count; $n < $target; $n++) {
+                    $this->makeOpenEntry($survey, $assignment, $mitra, $n);
+                }
 
                 $assignment->update(['current_progress' => $count]);
             }
@@ -132,6 +154,7 @@ class DemoDataSeeder extends Seeder
             // Satu mitra dibuat tuntas agar contoh data punya mitra 100%, tanpa melebihi targetnya.
             if ($data['status'] === 'Berjalan' && $i === 0) {
                 $assignment = SurveyAssignment::query()->where('survey_id', $survey->id)->with('mitra')->first();
+                $assignment->entries()->where('entry_status', SurveyEntry::STATUS_OPEN)->delete();
                 for ($k = (int) $assignment->current_progress; $k < (int) $assignment->target; $k++) {
                     $this->makeSubmittedEntry($survey, $assignment, $assignment->mitra, $variables, $k, true);
                 }
@@ -173,17 +196,16 @@ class DemoDataSeeder extends Seeder
 
     private function makeSubmittedEntry(Survey $survey, SurveyAssignment $assignment, User $mitra, Collection $variables, int $n, bool $useSusenasValues): SurveyEntry
     {
-        $district = $this->districts->random();
-        $village = $district->villages->isNotEmpty() ? $district->villages->random() : null;
+        $sls = $this->slsFor($assignment);
         $createdAt = Carbon::now()->subDays(random_int(0, 25))->setTime(random_int(7, 17), random_int(0, 59));
 
         $entry = SurveyEntry::query()->create([
             'survey_id' => $survey->id,
             'survey_assignment_id' => $assignment->id,
-            'district_id' => $district->id,
-            'village_id' => $village?->id,
+            'district_id' => $sls->village->district_id,
+            'village_id' => $sls->village_id,
             'kode_nks' => 'NKS'.str_pad((string) random_int(1, 999), 3, '0', STR_PAD_LEFT),
-            'sls' => 'SLS'.str_pad((string) $assignment->id, 2, '0', STR_PAD_LEFT),
+            'sls' => $sls->name,
             'ppl' => $mitra->name,
             'no_urut_ruta' => (string) ($n + 1),
             'evidence_photo_path' => $this->demoPhoto('demo/bukti-'.$survey->id.'-'.$assignment->id.'-'.($n + 1).'.jpg'),
@@ -202,6 +224,34 @@ class DemoDataSeeder extends Seeder
         }
 
         return $entry;
+    }
+
+    /**
+     * Setiap alokasi mitra mendapat satu SLS master yang berbeda, sehingga nomor urut ruta
+     * (1, 2, 3, ...) unik per desa + SLS seperti hasil impor alokasi.
+     */
+    private function slsFor(SurveyAssignment $assignment): SlsArea
+    {
+        return $this->slsByAssignment[$assignment->id] ??= $this->slsPool[count($this->slsByAssignment) % $this->slsPool->count()];
+    }
+
+    /**
+     * Ruta hasil alokasi yang belum disentuh mitra: punya wilayah dan nomor urut, tanpa isian.
+     */
+    private function makeOpenEntry(Survey $survey, SurveyAssignment $assignment, User $mitra, int $n): SurveyEntry
+    {
+        $sls = $this->slsFor($assignment);
+
+        return SurveyEntry::query()->create([
+            'survey_id' => $survey->id,
+            'survey_assignment_id' => $assignment->id,
+            'district_id' => $sls->village->district_id,
+            'village_id' => $sls->village_id,
+            'sls' => $sls->name,
+            'ppl' => $mitra->name,
+            'no_urut_ruta' => (string) ($n + 1),
+            'entry_status' => SurveyEntry::STATUS_OPEN,
+        ]);
     }
 
     /**

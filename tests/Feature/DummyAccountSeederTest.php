@@ -29,7 +29,6 @@ class DummyAccountSeederTest extends TestCase
             'open_count' => 10,
             'draft_count' => 0,
             'submit_count' => 0,
-            'other_count' => 0,
             'status_breakdown' => ['OPEN' => 10],
         ]);
 

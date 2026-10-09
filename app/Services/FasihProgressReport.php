@@ -47,7 +47,7 @@ class FasihProgressReport
 
     /**
      * @param  Collection<int, FasihProgressRow>  $rows
-     * @return array{total: int, open: int, draft: int, submit: int, other: int, percent: float, mitra_count: int, sls_count: int}
+     * @return array{total: int, open: int, draft: int, submit: int, percent: float, mitra_count: int, sls_count: int}
      */
     public function totals(Collection $rows): array
     {
@@ -60,7 +60,7 @@ class FasihProgressReport
 
     /**
      * @param  Collection<int, FasihProgressRow>  $rows
-     * @return Collection<int, array{key: string, code: string, name: string, context: string, pencacah?: string|null, mitra: list<string>, mitra_count: int, sls_count: int, total: int, open: int, draft: int, submit: int, other: int, percent: float, drill: array<string, string>}>
+     * @return Collection<int, array{key: string, code: string, name: string, context: string, pencacah?: string|null, mitra: list<string>, mitra_count: int, sls_count: int, total: int, open: int, draft: int, submit: int, percent: float, drill: array<string, string>}>
      */
     public function groupBy(Collection $rows, string $level): Collection
     {
@@ -188,7 +188,7 @@ class FasihProgressReport
 
     /**
      * @param  Collection<int, FasihProgressRow>  $rows
-     * @return array{total: int, open: int, draft: int, submit: int, other: int, percent: float}
+     * @return array{total: int, open: int, draft: int, submit: int, percent: float}
      */
     private function sumCounts(Collection $rows): array
     {
@@ -200,7 +200,6 @@ class FasihProgressReport
             'open' => (int) $rows->sum('open_count'),
             'draft' => (int) $rows->sum('draft_count'),
             'submit' => $submit,
-            'other' => (int) $rows->sum('other_count'),
             'percent' => $total > 0 ? round($submit / $total * 100, 1) : 0.0,
         ];
     }

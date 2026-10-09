@@ -183,24 +183,28 @@ class AdminModuleFlowTest extends TestCase
         $this->actingAs($pegawai)->get('/admin/dashboard')->assertForbidden();
     }
 
-    public function test_mitra_target_cannot_drop_below_rutas_already_held(): void
+    public function test_mitra_target_follows_allocated_ruta_and_cannot_be_edited(): void
     {
         $this->seed();
 
         $admin = User::query()->where('email', 'admin@bps.go.id')->firstOrFail();
         $survey = Survey::query()->where('title', 'SUSENAS')->firstOrFail();
-        $assignment = $survey->assignments()->has('entries')->withCount('entries')->firstOrFail();
-        $held = $assignment->entries_count;
+        $assignment = $survey->assignments()->withCount('entries')->firstOrFail();
 
-        $this->actingAs($admin)->from('/admin/surveys/'.$survey->id.'/assignments')
-            ->put('/admin/surveys/'.$survey->id.'/assignments/'.$assignment->id, ['target' => $held - 1])
-            ->assertSessionHasErrors('target');
-        $this->assertSame((int) $assignment->target, (int) $assignment->fresh()->target);
+        // Target setiap mitra sama dengan jumlah ruta hasil alokasi, dan total survei mengikutinya.
+        foreach ($survey->assignments()->withCount('entries')->get() as $item) {
+            $this->assertSame($item->entries_count, (int) $item->target);
+        }
+        $this->assertSame((int) $survey->assignments()->sum('target'), (int) $survey->total_target);
 
+        // Target tidak bisa diubah manual; ruta hanya bertambah lewat impor atau tambah manual.
+        $this->actingAs($admin)->get('/admin/surveys/'.$survey->id.'/assignments')
+            ->assertOk()
+            ->assertDontSee('id="target-'.$assignment->id.'"', false);
         $this->actingAs($admin)
-            ->put('/admin/surveys/'.$survey->id.'/assignments/'.$assignment->id, ['target' => $held])
-            ->assertSessionHasNoErrors();
-        $this->assertSame($held, (int) $assignment->fresh()->target);
+            ->put('/admin/surveys/'.$survey->id.'/assignments/'.$assignment->id, ['target' => $assignment->entries_count + 5])
+            ->assertMethodNotAllowed();
+        $this->assertSame($assignment->entries_count, (int) $assignment->fresh()->target);
     }
 
     public function test_admin_user_search_filters_by_name_or_email(): void

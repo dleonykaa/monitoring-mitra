@@ -9,7 +9,6 @@
     $fmt = fn ($n) => number_format((int) $n, 0, ',', '.');
     $fmtPct = fn ($n) => number_format((float) $n, 1, ',', '.').'%';
     $tone = fn ($p) => $p >= 90 ? 'good' : ($p >= 70 ? 'ok' : ($p >= 50 ? 'warn' : 'bad'));
-    $initials = fn ($name) => collect(preg_split('/\s+/', trim($name)))->take(2)->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))->join('');
     $shortDate = fn ($date) => $date->locale('id')->translatedFormat('d M Y');
 
     $isLocked = $survey->status === 'Selesai';
@@ -77,6 +76,13 @@
                     @else
                         <a class="b b-outline-light" href="/admin/surveys/{{ $survey->id }}/checkpoints">Checkpoint</a>
                         <a class="b b-outline-light" href="/admin/surveys/{{ $survey->id }}/edit">Ubah pengaturan</a>
+                    @endif
+                    @if ($survey->status === 'Draft')
+                        <form method="POST" action="/admin/surveys/{{ $survey->id }}" style="display:inline" data-confirm="Hapus survei draft {{ $survey->title }}? Form isian, alokasi mitra, dan checkpoint-nya ikut terhapus dan tidak bisa dikembalikan.">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="b b-outline-light" aria-label="Hapus survei {{ $survey->title }}">Hapus survei</button>
+                        </form>
                     @endif
                 @endif
             </div>
@@ -151,7 +157,6 @@
                                             <td class="rank">{{ $loop->iteration }}</td>
                                             <td>
                                                 <div class="who">
-                                                    <span class="avatar" aria-hidden="true">{{ $initials($assignment->mitra->name) }}</span>
                                                     @if ($canManage)
                                                         <a href="/admin/mitra/{{ $assignment->mitra->id }}"><span><b>{{ $assignment->mitra->name }}</b></span></a>
                                                     @else

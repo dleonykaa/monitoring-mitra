@@ -81,21 +81,23 @@ class NotificationFlowTest extends TestCase
             'data_type' => 'number',
             'example_format' => '4',
         ]);
-        SurveyAssignment::query()->create(['survey_id' => $survey->id, 'mitra_id' => $mitra->id, 'target' => 3]);
-
-        $entryPayload = [
+        $assignment = SurveyAssignment::query()->create(['survey_id' => $survey->id, 'mitra_id' => $mitra->id, 'target' => 1]);
+        $entry = SurveyEntry::query()->create([
+            'survey_id' => $survey->id,
+            'survey_assignment_id' => $assignment->id,
             'district_id' => $village->district_id,
             'village_id' => $village->id,
             'sls' => '0001',
             'no_urut_ruta' => '7',
-            'variables' => [$variable->id => '4'],
-        ];
+            'entry_status' => SurveyEntry::STATUS_OPEN,
+        ]);
+
+        $entryPayload = ['variables' => [$variable->id => '4']];
 
         // Draft belum dihitung sebagai update, jadi belum ada notifikasi.
-        $this->actingAs($mitra)->post('/mitra/surveys/'.$survey->id.'/entries', [...$entryPayload, 'action' => 'draft']);
+        $this->actingAs($mitra)->put('/mitra/entries/'.$entry->id, [...$entryPayload, 'action' => 'draft'])->assertSessionHasNoErrors();
         $this->assertSame(0, $admin->notifications()->count());
 
-        $entry = SurveyEntry::query()->where('survey_id', $survey->id)->sole();
         $this->actingAs($mitra)->put('/mitra/entries/'.$entry->id, [
             ...$entryPayload,
             'action' => 'submit',

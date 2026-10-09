@@ -28,7 +28,6 @@ class MitraModuleFlowTest extends TestCase
             ->whereHas('survey', fn ($query) => $query->where('status', 'Berjalan'))
             ->with('survey.variables')
             ->firstOrFail();
-        $assignment->update(['target' => $assignment->entries()->count() + 3]);
         $survey = $assignment->survey;
         if ($survey->variables->isEmpty()) {
             SurveyVariable::query()->create([
@@ -56,6 +55,18 @@ class MitraModuleFlowTest extends TestCase
             'no_urut_ruta' => 'RUTA-OPEN',
             'entry_status' => SurveyEntry::STATUS_OPEN,
         ]);
+        // Ruta alokasi kedua yang langsung diselesaikan mitra.
+        $newEntry = SurveyEntry::query()->create([
+            'survey_id' => $survey->id,
+            'survey_assignment_id' => $assignment->id,
+            'district_id' => $village->district_id,
+            'village_id' => $village->id,
+            'kode_nks' => 'NKS-BARU',
+            'sls' => '0002',
+            'ppl' => $mitra->name,
+            'no_urut_ruta' => 'RUTA-BARU',
+            'entry_status' => SurveyEntry::STATUS_OPEN,
+        ]);
         $initialProgress = $assignment->current_progress;
 
         $this->actingAs($mitra)->get('/mitra/dashboard')
@@ -75,7 +86,8 @@ class MitraModuleFlowTest extends TestCase
         $this->actingAs($mitra)->get('/mitra/surveys?status=Selesai')->assertOk()->assertDontSee($survey->title);
         $this->actingAs($mitra)->get('/mitra/surveys/'.$survey->id)
             ->assertOk()
-            ->assertSee('Isi ruta baru')
+            // Mitra hanya mengerjakan ruta hasil alokasi, tidak bisa menambah ruta sendiri.
+            ->assertDontSee('Isi ruta baru')
             ->assertSee('RUTA-OPEN')
             ->assertSee('Mulai isi');
         $this->actingAs($mitra)->get('/mitra/entries/'.$openEntry->id.'/edit')
@@ -143,19 +155,14 @@ class MitraModuleFlowTest extends TestCase
         // Entri selesai terkunci.
         $this->actingAs($mitra)->get('/mitra/entries/'.$openEntry->id.'/edit')->assertForbidden();
 
-        // Entri baru dari sisa target langsung diselesaikan.
-        $this->actingAs($mitra)->post('/mitra/surveys/'.$survey->id.'/entries', [
+        // Ruta alokasi berikutnya langsung diselesaikan tanpa draft.
+        $this->actingAs($mitra)->put('/mitra/entries/'.$newEntry->id, [
             'action' => 'submit',
-            'district_id' => $village->district_id,
-            'village_id' => $village->id,
-            'kode_nks' => 'NKS-BARU',
-            'sls' => '0002',
-            'no_urut_ruta' => 'RUTA-BARU',
             'evidence_photo' => UploadedFile::fake()->image('bukti-baru.jpg'),
             'variables' => $allValues,
         ])->assertRedirect('/mitra/surveys/'.$survey->id);
 
-        $newEntry = SurveyEntry::query()->where('no_urut_ruta', 'RUTA-BARU')->firstOrFail();
+        $newEntry->refresh();
         $this->assertSame(SurveyEntry::STATUS_SUBMITTED, $newEntry->entry_status);
         $this->assertSame($initialProgress + 2, $assignment->fresh()->current_progress);
 
@@ -206,7 +213,16 @@ class MitraModuleFlowTest extends TestCase
             ->where('mitra_id', $mitra->id)
             ->whereHas('survey', fn ($query) => $query->where('status', 'Berjalan')->where('type', 'papi'))
             ->firstOrFail();
-        $assignment->update(['target' => $assignment->entries()->count() + 1]);
+        $village = Village::query()->firstOrFail();
+        $entry = SurveyEntry::query()->create([
+            'survey_id' => $assignment->survey_id,
+            'survey_assignment_id' => $assignment->id,
+            'district_id' => $village->district_id,
+            'village_id' => $village->id,
+            'sls' => '0001',
+            'no_urut_ruta' => '1',
+            'entry_status' => SurveyEntry::STATUS_OPEN,
+        ]);
         $variable = SurveyVariable::query()->create([
             'survey_id' => $assignment->survey_id,
             'name' => 'Jumlah Anggota',
@@ -214,12 +230,12 @@ class MitraModuleFlowTest extends TestCase
             'example_format' => '4',
         ]);
 
-        $this->actingAs($mitra)->from('/mitra/surveys/'.$assignment->survey_id.'/entries/create')
-            ->post('/mitra/surveys/'.$assignment->survey_id.'/entries', [
+        $this->actingAs($mitra)->from('/mitra/entries/'.$entry->id.'/edit')
+            ->put('/mitra/entries/'.$entry->id, [
                 'action' => 'draft',
                 'variables' => [$variable->id => 'empat'],
             ])
-            ->assertRedirect('/mitra/surveys/'.$assignment->survey_id.'/entries/create')
+            ->assertRedirect('/mitra/entries/'.$entry->id.'/edit')
             ->assertSessionHasErrors('variables.'.$variable->id);
     }
 
@@ -247,7 +263,7 @@ class MitraModuleFlowTest extends TestCase
         $this->actingAs($mitra)->get('/admin/mitra')->assertForbidden();
     }
 
-    public function test_mitra_cannot_add_entry_beyond_target(): void
+    public function test_mitra_can_only_work_on_allocated_ruta(): void
     {
         $this->seed();
 
@@ -257,24 +273,14 @@ class MitraModuleFlowTest extends TestCase
             ->whereHas('survey', fn ($query) => $query->where('status', 'Berjalan'))
             ->firstOrFail();
         $entryCount = $assignment->entries()->count();
-        if ($entryCount === 0) {
-            SurveyEntry::query()->create([
-                'survey_id' => $assignment->survey_id,
-                'survey_assignment_id' => $assignment->id,
-                'entry_status' => SurveyEntry::STATUS_OPEN,
-            ]);
-            $entryCount = 1;
-        }
-        $assignment->update(['target' => $entryCount]);
 
+        // Tidak ada tombol maupun rute untuk menambah ruta di luar alokasi.
         $this->actingAs($mitra)->get('/mitra/surveys/'.$assignment->survey_id)
             ->assertOk()
-            ->assertDontSee('Isi ruta baru');
-        $this->actingAs($mitra)->get('/mitra/surveys/'.$assignment->survey_id.'/entries/create')
-            ->assertRedirect('/mitra/surveys/'.$assignment->survey_id)
-            ->assertSessionHasErrors('entry');
-        $this->actingAs($mitra)->post('/mitra/surveys/'.$assignment->survey_id.'/entries', ['action' => 'draft'])
-            ->assertSessionHasErrors('entry');
+            ->assertDontSee('Isi ruta baru')
+            ->assertDontSee('/entries/create', false);
+        $this->actingAs($mitra)->get('/mitra/surveys/'.$assignment->survey_id.'/entries/create')->assertNotFound();
+        $this->actingAs($mitra)->post('/mitra/surveys/'.$assignment->survey_id.'/entries', ['action' => 'draft'])->assertNotFound();
         $this->assertSame($entryCount, $assignment->entries()->count());
     }
 }

@@ -492,13 +492,20 @@ document.querySelectorAll('input[type="date"]').forEach(function(native){
         if (native.max && iso > native.max) { text.setCustomValidity('Tanggal paling akhir ' + toDmy(native.max) + '.'); return; }
         text.setCustomValidity('');
     };
+    // Selama nilai asli diperbarui dari isian teks, isian teks tidak ditimpa balik oleh pendengar "change";
+    // tanpa ini tanggal di luar batas min/max terhapus diam-diam saat field ditinggalkan.
+    let committing = false;
     const commit = function(){
         const iso = text.value.trim() === '' ? '' : toIso(text.value);
         validate();
-        if (iso === null || iso === native.value) return;
-        native.value = text.validationMessage === '' ? iso : '';
+        if (iso === null) return;
+        const next = text.validationMessage === '' ? iso : '';
+        if (next === native.value) return;
+        native.value = next;
+        committing = true;
         native.dispatchEvent(new Event('input', {bubbles: true}));
         native.dispatchEvent(new Event('change', {bubbles: true}));
+        committing = false;
     };
 
     text.addEventListener('input', function(){
@@ -512,14 +519,23 @@ document.querySelectorAll('input[type="date"]').forEach(function(native){
         }
         if (text.value.length === 10 || text.value === '') commit(); else text.setCustomValidity('Isi tanggal dengan format dd/mm/yyyy.');
     });
-    text.addEventListener('blur', commit);
-    native.addEventListener('change', function(){ if (document.activeElement !== text) showNative(); });
+    text.addEventListener('blur', function(){
+        commit();
+        // Tanggal yang ditolak (format salah atau di luar periode) langsung diberi tahu, bukan saat menyimpan.
+        if (text.validationMessage !== '' && text.value.trim() !== '') text.reportValidity();
+    });
+    native.addEventListener('change', function(){ if (!committing && document.activeElement !== text) showNative(); });
     button.addEventListener('click', function(){
         if (typeof native.showPicker === 'function') { try { native.showPicker(); return; } catch (error) {} }
         text.focus();
     });
     // Skrip halaman bisa mengubah nilai/batas tanggal lain di form yang sama; tampilannya disamakan lagi.
-    (native.form || document).addEventListener('change', function(){ if (document.activeElement !== text) showNative(); validate(); });
+    // Event "change" dari isian teks ini sendiri (saat ditinggalkan) juga diabaikan agar ketikannya tidak hilang.
+    (native.form || document).addEventListener('change', function(event){
+        if (committing || event.target === text) return;
+        if (document.activeElement !== text) showNative();
+        validate();
+    });
     native.form?.addEventListener('click', function(event){ if (event.target.closest('[type="submit"]')) validate(); }, true);
     showNative();
 });

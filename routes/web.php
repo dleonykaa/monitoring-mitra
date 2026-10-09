@@ -137,7 +137,6 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('/surveys/{survey}/variables/{variable}', [SurveyManagementController::class, 'deleteVariable']);
         Route::get('/surveys/{survey}/assignments', [SurveyManagementController::class, 'assignments']);
         Route::post('/surveys/{survey}/assignments', [SurveyManagementController::class, 'storeAssignment']);
-        Route::put('/surveys/{survey}/assignments/{assignment}', [SurveyManagementController::class, 'updateAssignment']);
         Route::delete('/surveys/{survey}/assignments/{assignment}', [SurveyManagementController::class, 'deleteAssignment']);
         Route::post('/surveys/{survey}/assignments/import', [SurveyManagementController::class, 'importAssignments']);
         Route::get('/surveys/{survey}/assignments/template', [SurveyManagementController::class, 'downloadAssignmentTemplate']);
@@ -190,8 +189,6 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/dashboard', [MitraPanelController::class, 'dashboard']);
         Route::get('/surveys', [MitraPanelController::class, 'surveys']);
         Route::get('/surveys/{survey}', [MitraPanelController::class, 'showSurvey']);
-        Route::get('/surveys/{survey}/entries/create', [MitraPanelController::class, 'createEntry']);
-        Route::post('/surveys/{survey}/entries', [MitraPanelController::class, 'storeEntry']);
         Route::get('/entries/{entry}/edit', [MitraPanelController::class, 'editEntry']);
         Route::put('/entries/{entry}', [MitraPanelController::class, 'updateEntry']);
 
