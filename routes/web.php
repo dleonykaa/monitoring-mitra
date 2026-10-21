@@ -118,6 +118,7 @@ Route::middleware('auth')->group(function (): void {
 
         Route::get('/surveys', [SurveyManagementController::class, 'index']);
         Route::get('/surveys/create', [SurveyManagementController::class, 'create']);
+        Route::get('/surveys/pegawai/template', [SurveyManagementController::class, 'downloadPegawaiTemplate']);
         Route::post('/surveys', [SurveyManagementController::class, 'store']);
         Route::get('/surveys/{survey}', [SurveyManagementController::class, 'show']);
         Route::get('/surveys/{survey}/edit', [SurveyManagementController::class, 'edit']);
@@ -142,6 +143,7 @@ Route::middleware('auth')->group(function (): void {
         Route::post('/surveys/{survey}/checkpoints', [SurveyManagementController::class, 'storeCheckpoint']);
         Route::delete('/surveys/{survey}/checkpoints/{checkpoint}', [SurveyManagementController::class, 'deleteCheckpoint']);
         Route::post('/surveys/{survey}/pegawai', [SurveyPegawaiController::class, 'store']);
+        Route::post('/surveys/{survey}/pegawai/import', [SurveyPegawaiController::class, 'import']);
         Route::delete('/surveys/{survey}/pegawai/{user}', [SurveyPegawaiController::class, 'destroy'])->withTrashed();
         Route::post('/surveys/{survey}/finish-setup', [SurveyManagementController::class, 'finishSetup']);
         Route::post('/surveys/{survey}/status', [SurveyManagementController::class, 'setStatus']);

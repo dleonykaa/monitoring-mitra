@@ -73,7 +73,7 @@
         <div class="sel">
             <select id="peSurvey" name="survey" onchange="this.form.submit()" @disabled($surveys->isEmpty())>
                 @forelse ($surveys as $item)
-                    <option value="{{ $item->id }}" @selected($survey?->is($item))>{{ $item->title }} · {{ $item->status }}{{ in_array($item->id, $mySurveyIds ?? [], true) ? ' · Survei saya' : '' }}</option>
+                    <option value="{{ $item->id }}" @selected($survey?->is($item))>{{ $item->title }} · {{ $item->status }}</option>
                 @empty
                     <option>Belum ada survei PAPI</option>
                 @endforelse

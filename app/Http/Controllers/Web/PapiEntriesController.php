@@ -68,7 +68,7 @@ class PapiEntriesController extends Controller
     public function show(Request $request, SurveyEntry $entry): View
     {
         $survey = $entry->survey;
-        abort_if(! $survey || $survey->isCapi(), 404);
+        abort_if(! $survey || $survey->isCapi() || ! $survey->isVisibleTo($request->user()), 404);
 
         return view('panel.survey-entry-detail', [
             ...$this->panel($request),
@@ -143,16 +143,14 @@ class PapiEntriesController extends Controller
             'to.after_or_equal' => 'Tanggal akhir harus sama atau setelah tanggal awal.',
         ]);
 
-        $surveys = Survey::query()->where('type', Survey::TYPE_PAPI)
+        $surveys = Survey::query()->visibleTo($request->user())->where('type', Survey::TYPE_PAPI)
             ->orderByRaw("case status when 'Berjalan' then 0 when 'Draft' then 1 else 2 end")
             ->latest('id')
             ->get(['id', 'title', 'type', 'status', 'start_date', 'end_date']);
 
-        // Tanpa pilihan, pegawai langsung melihat survei yang ia tanggungjawabi.
-        $mySurveyIds = $request->user()->supervisedSurveys()->pluck('surveys.id')->all();
         $survey = isset($data['survey'])
             ? $surveys->firstWhere('id', (int) $data['survey'])
-            : ($surveys->first(fn (Survey $item): bool => in_array($item->id, $mySurveyIds, true)) ?? $surveys->first());
+            : $surveys->first();
         $survey?->load('variables');
 
         $sort = $data['sort'] ?? 'updated';
@@ -163,7 +161,6 @@ class PapiEntriesController extends Controller
 
         return [
             'surveys' => $surveys,
-            'mySurveyIds' => $mySurveyIds,
             'survey' => $survey,
             'filters' => [
                 'status' => $data['status'] ?? SurveyEntry::STATUS_SUBMITTED,

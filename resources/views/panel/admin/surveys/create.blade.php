@@ -58,6 +58,37 @@
                         </label>
                     </div>
 
+                    <fieldset style="border:0;margin:0;padding:0;display:grid;gap:8px">
+                        <legend class="fld-label" style="margin-bottom:4px;padding:0">Pegawai penanggung jawab <small>(opsional)</small></legend>
+                        <span class="hint" style="font-size:12px;color:var(--muted)">Hanya pegawai yang dipilih yang dapat melihat dan memantau survei ini. Pegawai bisa ditambah atau dicabut nanti dari detail survei.</span>
+                        @if ($pegawaiOptions->isEmpty())
+                            <p style="margin:0;font-size:12.5px;color:var(--muted)">Belum ada akun pegawai BPS aktif. Tambahkan di Manajemen Pengguna.</p>
+                        @else
+                            @php $oldPegawaiIds = collect(old('pegawai_ids', []))->map(fn ($id) => (int) $id)->all(); @endphp
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 14px;max-height:220px;overflow:auto;padding:10px 12px;border:1px solid var(--line);border-radius:8px">
+                                @foreach ($pegawaiOptions as $pegawai)
+                                    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;min-width:0">
+                                        <input type="checkbox" name="pegawai_ids[]" value="{{ $pegawai->id }}" @checked(in_array($pegawai->id, $oldPegawaiIds, true)) style="margin-top:3px;accent-color:var(--brand)">
+                                        <span style="min-width:0"><b style="display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $pegawai->name }}</b><small style="color:var(--muted);font-size:11.5px">{{ $pegawai->email }}</small></span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        @endif
+                        @error('pegawai_ids.*')
+                            <p style="margin:0;font-size:12px;color:var(--t-rose-fg)">{{ $message }}</p>
+                        @enderror
+                        <label class="fld" style="margin-top:4px">
+                            <span>Atau unggah daftar pegawai <small>(opsional, .xlsx/.csv, dikenali dari email)</small></span>
+                            <input type="file" name="pegawai_file" accept=".xlsx,.xls,.csv">
+                        </label>
+                        <span class="hint" style="font-size:12px;color:var(--muted)">
+                            <a href="/admin/surveys/pegawai/template">Unduh template</a> · <a href="/templates/contoh-impor-pegawai-survei.xlsx" download>Contoh file</a>. Pegawai dari file digabung dengan yang dicentang.
+                        </span>
+                        @error('pegawai_file')
+                            <p style="margin:0;font-size:12px;color:var(--t-rose-fg)">{{ $message }}</p>
+                        @enderror
+                    </fieldset>
+
                     <div class="fld" id="capiSection" @if ($selectedType !== 'capi') hidden @endif>
                         <span>Data scraping FASIH pertama</span>
                         <label class="dropzone" id="capiDrop">

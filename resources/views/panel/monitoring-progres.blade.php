@@ -274,7 +274,7 @@
         <div class="fx-filter-select">
             <select id="fxSurvey" name="survey" onchange="this.form.submit()" @disabled($surveys->isEmpty())>
                 @forelse ($surveys as $item)
-                    <option value="{{ $item->id }}" @selected($selectedSurvey?->is($item))>{{ $item->title }} · {{ $item->typeLabel() }}{{ in_array($item->id, $mySurveyIds ?? [], true) ? ' · Survei saya' : '' }}</option>
+                    <option value="{{ $item->id }}" @selected($selectedSurvey?->is($item))>{{ $item->title }} · {{ $item->typeLabel() }}</option>
                 @empty
                     <option>Tidak ada survei berjalan</option>
                 @endforelse

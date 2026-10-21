@@ -30,8 +30,9 @@ class EndToEndModuleConnectionTest extends TestCase
             'type' => Survey::TYPE_PAPI,
             'title' => 'Survei Integrasi Modul',
             'description' => 'Survei untuk memastikan modul pegawai dan mitra terhubung.',
-            'start_date' => '2026-10-10',
-            'end_date' => '2026-10-30',
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addDays(20)->toDateString(),
+            'pegawai_ids' => [$pegawai->id],
         ])->assertRedirect();
 
         $survey = Survey::query()->where('title', 'Survei Integrasi Modul')->firstOrFail();

@@ -6,18 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Survey;
 use App\Models\User;
-use App\Notifications\PegawaiAssignedNotification;
+use App\Services\SurveyPegawaiAssigner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Admin menunjuk pegawai BPS sebagai penanggung jawab (PML) survei, di samping alokasi mitranya.
- * Pegawai yang ditunjuk diberi tahu dan menerima notifikasi entri mitra survei tersebut.
+ * Hanya pegawai yang ditunjuk yang dapat melihat survei ini; mereka diberi tahu dan menerima
+ * notifikasi entri mitra survei tersebut.
  */
 class SurveyPegawaiController extends Controller
 {
-    public function store(Request $request, Survey $survey): RedirectResponse
+    public function store(Request $request, Survey $survey, SurveyPegawaiAssigner $assigner): RedirectResponse
     {
         $this->ensureSurveyIsEditable($survey);
 
@@ -37,16 +39,37 @@ class SurveyPegawaiController extends Controller
         $pegawai = User::query()->findOrFail($data['user_id']);
         abort_unless($pegawai->hasRole('pegawai_bps'), 422, 'Hanya pegawai BPS yang dapat ditugaskan sebagai penanggung jawab survei.');
 
-        $survey->pegawai()->attach($pegawai->id);
-        $pegawai->notify(new PegawaiAssignedNotification($survey));
-
-        ActivityLog::query()->create([
-            'user_id' => $request->user()->id,
-            'action' => 'admin.survey.pegawai_assign',
-            'description' => "Menugaskan {$pegawai->name} sebagai penanggung jawab survei {$survey->title}",
-        ]);
+        $assigner->assign($survey, [$pegawai], $request->user());
 
         return back()->with('status', $pegawai->name.' ditugaskan sebagai penanggung jawab survei.');
+    }
+
+    /**
+     * Menambah penanggung jawab dari template Excel/CSV berisi email pegawai. Pegawai yang sudah
+     * ditugaskan dilewati, dan penugasan yang ada tidak dicabut.
+     */
+    public function import(Request $request, Survey $survey, SurveyPegawaiAssigner $assigner): RedirectResponse
+    {
+        $this->ensureSurveyIsEditable($survey);
+
+        $request->validate([
+            'pegawai_file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120'],
+        ], [
+            'pegawai_file.required' => 'Pilih file template pegawai yang sudah diisi.',
+            'pegawai_file.mimes' => 'File pegawai harus berformat Excel (.xlsx) atau CSV.',
+        ]);
+
+        try {
+            $pegawai = $assigner->parse($request->file('pegawai_file'), 'pegawai_file');
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo(url()->previous().'#pegawaiTitle');
+        }
+
+        $newPegawai = $assigner->assign($survey, $pegawai, $request->user());
+        $skipped = $pegawai->count() - $newPegawai->count();
+
+        return back()->with('status', $newPegawai->count().' pegawai ditugaskan dari file.'
+            .($skipped > 0 ? " {$skipped} pegawai sudah ditugaskan sebelumnya." : ''));
     }
 
     public function destroy(Request $request, Survey $survey, User $user): RedirectResponse

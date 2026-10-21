@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -134,6 +136,25 @@ class Survey extends Model
     public function pegawai(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'survey_pegawai')->withTrashed()->withTimestamps()->orderBy('name');
+    }
+
+    /**
+     * Survei yang boleh dilihat pengguna: pegawai BPS hanya survei yang ditugaskan kepadanya,
+     * admin dan pimpinan melihat seluruh survei.
+     *
+     * @param  Builder<Survey>  $query
+     */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        if ($user->hasRole('pegawai_bps')) {
+            $query->whereHas('pegawai', fn (Builder $pegawai) => $pegawai->whereKey($user->id));
+        }
+    }
+
+    public function isVisibleTo(User $user): bool
+    {
+        return self::query()->visibleTo($user)->whereKey($this->id)->exists();
     }
 
     public function variables(): HasMany

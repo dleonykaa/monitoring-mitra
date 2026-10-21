@@ -75,6 +75,7 @@ class NotificationFlowTest extends TestCase
         $village = Village::query()->firstOrFail();
 
         $survey = $this->papiSurvey($admin, 'Berjalan');
+        $survey->pegawai()->attach($pegawai->id);
         $variable = SurveyVariable::query()->create([
             'survey_id' => $survey->id,
             'name' => 'Jumlah ART',

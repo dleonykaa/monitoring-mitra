@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Exports\AssignmentTemplateExport;
+use App\Exports\PegawaiTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\SlsArea;
@@ -17,7 +18,9 @@ use App\Notifications\MitraAssignedNotification;
 use App\Services\FasihProgressImporter;
 use App\Services\MitraCheckpointProgress;
 use App\Services\PapiAllocationImporter;
+use App\Services\SurveyPegawaiAssigner;
 use App\Services\SurveyProgressSummary;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -49,10 +52,12 @@ class SurveyManagementController extends Controller
 
     public function create(): View
     {
-        return view('panel.admin.surveys.create');
+        return view('panel.admin.surveys.create', [
+            'pegawaiOptions' => $this->activePegawai()->get(['id', 'name', 'email']),
+        ]);
     }
 
-    public function store(Request $request, FasihProgressImporter $importer): RedirectResponse
+    public function store(Request $request, FasihProgressImporter $importer, SurveyPegawaiAssigner $pegawaiAssigner): RedirectResponse
     {
         $isCapi = $request->input('type') === Survey::TYPE_CAPI;
 
@@ -66,8 +71,13 @@ class SurveyManagementController extends Controller
             'checkpoints' => $isCapi ? ['nullable', 'array', 'max:10'] : ['exclude'],
             'checkpoints.*.date' => $isCapi ? ['required', 'date', 'distinct', 'after_or_equal:start_date', 'before_or_equal:end_date'] : ['exclude'],
             'checkpoints.*.target' => $isCapi ? ['required', 'integer', 'min:1', 'max:100'] : ['exclude'],
+            'pegawai_ids' => ['nullable', 'array'],
+            'pegawai_ids.*' => ['integer', 'distinct', Rule::in($this->activePegawai()->pluck('id')->all())],
+            'pegawai_file' => ['nullable', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120'],
         ], [
             'title.unique' => 'Nama survei/sensus sudah dipakai. Gunakan nama lain.',
+            'pegawai_ids.*.in' => 'Pegawai yang dipilih tidak ditemukan atau tidak aktif.',
+            'pegawai_file.mimes' => 'File pegawai harus berformat Excel (.xlsx) atau CSV.',
             'file.required' => 'Survei CAPI memerlukan file data scraping FASIH pertama.',
             'file.mimes' => 'File data scraping harus berformat CSV.',
             'checkpoints.max' => 'Maksimal 10 checkpoint.',
@@ -79,6 +89,12 @@ class SurveyManagementController extends Controller
             'checkpoints.*.target.min' => 'Target checkpoint minimal 1%.',
             'checkpoints.*.target.max' => 'Target checkpoint maksimal 100%.',
         ]);
+
+        // Pegawai dari centang dan dari file template digabung; file yang salah membatalkan pembuatan survei.
+        $pegawai = User::query()->whereKey($data['pegawai_ids'] ?? [])->get();
+        if ($request->hasFile('pegawai_file')) {
+            $pegawai = $pegawai->merge($pegawaiAssigner->parse($request->file('pegawai_file'), 'pegawai_file'));
+        }
 
         $checkpoints = $this->sortNewCheckpoints($data['checkpoints'] ?? []);
 
@@ -114,6 +130,8 @@ class SurveyManagementController extends Controller
             'action' => 'admin.survey.create',
             'description' => 'Membuat survei '.$survey->typeLabel().' '.$survey->title,
         ]);
+
+        $pegawaiAssigner->assign($survey, $pegawai, $request->user());
 
         return $isCapi
             ? redirect('/admin/monitoring/progres?survey='.$survey->id)->with('status', 'Survei CAPI dibuat dan data FASIH pertama berhasil diimpor.'
@@ -416,6 +434,14 @@ class SurveyManagementController extends Controller
         );
     }
 
+    public function downloadPegawaiTemplate(): BinaryFileResponse
+    {
+        $examplePegawai = $this->activePegawai()->limit(3)->get(['name', 'email'])
+            ->map(fn (User $user): array => ['name' => $user->name, 'email' => $user->email]);
+
+        return Excel::download(new PegawaiTemplateExport($examplePegawai), 'template-pegawai-survei.xlsx');
+    }
+
     public function importAssignments(Request $request, Survey $survey, PapiAllocationImporter $importer): RedirectResponse
     {
         $this->ensurePapiSurvey($survey);
@@ -592,5 +618,15 @@ class SurveyManagementController extends Controller
     private function ensurePapiSurvey(Survey $survey): void
     {
         abort_if($survey->isCapi(), 404);
+    }
+
+    /**
+     * Akun pegawai BPS aktif yang dapat ditugaskan sebagai penanggung jawab survei.
+     *
+     * @return Builder<User>
+     */
+    private function activePegawai(): Builder
+    {
+        return User::query()->role('pegawai_bps')->where('is_active', true)->orderBy('name');
     }
 }

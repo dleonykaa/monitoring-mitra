@@ -11,14 +11,14 @@ use Illuminate\View\View;
 
 /**
  * Panel lihat saja untuk pegawai BPS dan pimpinan: dashboard, daftar survei, dan detail survei.
- * Pegawai tetap melihat seluruh survei; survei yang ia tanggungjawabi ditandai "Survei saya".
+ * Pimpinan melihat seluruh survei; pegawai hanya survei yang ditugaskan kepadanya.
  */
 class PegawaiPanelController extends Controller
 {
     public function dashboard(Request $request, SurveyDashboardOverview $overview): View
     {
         return view('panel.dashboard', [
-            ...$overview->build(),
+            ...$overview->build($request->user()),
             ...$this->panel($request),
         ]);
     }
@@ -26,14 +26,15 @@ class PegawaiPanelController extends Controller
     public function surveys(Request $request, SurveyProgressSummary $progressSummary): View
     {
         return view('panel.survey-index', [
-            'surveys' => $progressSummary->attach(Survey::query()->withCount('assignments')->latest()->get()),
-            'mySurveyIds' => $request->user()->supervisedSurveys()->pluck('surveys.id')->all(),
+            'surveys' => $progressSummary->attach(Survey::query()->visibleTo($request->user())->withCount('assignments')->latest()->get()),
             ...$this->panel($request),
         ]);
     }
 
     public function showSurvey(Request $request, Survey $survey): View
     {
+        abort_unless($survey->isVisibleTo($request->user()), 404);
+
         return view('panel.survey-show', [
             'survey' => $survey->loadDetail(),
             ...$this->panel($request),

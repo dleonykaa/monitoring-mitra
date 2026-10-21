@@ -73,8 +73,9 @@ class PegawaiModuleFlowTest extends TestCase
             'title' => 'Survei Modul Pegawai',
             'description' => 'Survei untuk uji modul pegawai',
             'total_target' => 1,
-            'start_date' => '2026-10-02',
-            'end_date' => '2026-10-30',
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addDays(28)->toDateString(),
+            'pegawai_ids' => [$pegawai->id],
         ]);
 
         $survey = Survey::query()->where('title', 'Survei Modul Pegawai')->firstOrFail();

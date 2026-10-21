@@ -33,7 +33,7 @@
             </div>
         @empty
             <p style="margin:0;font-size:12.5px;color:var(--muted)">
-                Belum ada pegawai yang ditugaskan.{{ $survey->isCapi() ? '' : ' Notifikasi entri mitra dikirim ke seluruh pegawai.' }}
+                Belum ada pegawai yang ditugaskan. Hanya pegawai yang ditugaskan yang dapat melihat survei ini.
             </p>
         @endforelse
 
@@ -58,6 +58,24 @@
             @error('user_id')
                 <p style="margin:8px 0 0;font-size:12px;color:var(--t-rose-fg)">{{ $message }}</p>
             @enderror
+
+            <form method="POST" action="/admin/surveys/{{ $survey->id }}/pegawai/import" enctype="multipart/form-data" style="display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+                @csrf
+                <span style="font-size:12.5px;color:var(--muted)">
+                    Atau impor banyak pegawai sekaligus dari file berisi <b>email</b> akun pegawai.
+                    <a href="/admin/surveys/pegawai/template">Unduh template</a> · <a href="/templates/contoh-impor-pegawai-survei.xlsx" download>Contoh file</a>
+                </span>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <label class="fld" style="flex:1;min-width:0">
+                        <span class="sr-only">File template pegawai</span>
+                        <input type="file" name="pegawai_file" accept=".xlsx,.xls,.csv" required>
+                    </label>
+                    <button type="submit" class="b b-soft b-sm">Impor</button>
+                </div>
+                @error('pegawai_file')
+                    <p style="margin:0;font-size:12px;color:var(--t-rose-fg)">{{ $message }}</p>
+                @enderror
+            </form>
         @endif
     </div>
 </section>

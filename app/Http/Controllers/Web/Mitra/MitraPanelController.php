@@ -340,14 +340,11 @@ class MitraPanelController extends Controller
 
     /**
      * Admin aktif dan pegawai penanggung jawab survei diberi tahu setiap mitra menyelesaikan entri.
-     * Survei tanpa penanggung jawab memberi tahu seluruh pegawai aktif.
+     * Pegawai lain tidak diberi tahu karena tidak dapat membuka survei tersebut.
      */
     private function notifyStaff(Survey $survey, SurveyEntry $entry): void
     {
-        $assigned = $survey->pegawai()->get();
-        $pegawai = $assigned->isNotEmpty()
-            ? $assigned->filter(fn (User $user): bool => $user->is_active && ! $user->trashed())
-            : User::query()->role('pegawai_bps')->where('is_active', true)->get();
+        $pegawai = $survey->pegawai()->get()->filter(fn (User $user): bool => $user->is_active && ! $user->trashed());
 
         Notification::send(
             User::query()->role('admin')->where('is_active', true)->get()->merge($pegawai)->unique('id'),

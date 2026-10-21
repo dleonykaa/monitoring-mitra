@@ -6,11 +6,12 @@ use App\Models\District;
 use App\Models\FasihProgressRow;
 use App\Models\Survey;
 use App\Models\SurveyEntry;
+use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Ringkasan dashboard admin dan pegawai untuk seluruh survei sekaligus. Rincian per survei,
+ * Ringkasan dashboard admin, pimpinan, dan pegawai untuk seluruh survei yang boleh dilihatnya. Rincian per survei,
  * wilayah, dan pencacah tetap berada di halaman Monitoring Progres.
  *
  * Angka progres survei berjalan dihitung dari baris yang sama dengan Monitoring: snapshot FASIH
@@ -41,10 +42,12 @@ class SurveyDashboardOverview
      *     behindMitra: Collection<int, array{survey: Survey, name: string, progress: int, target: int, percent: float, benchmark: float, gap: int, severity: string, unit: string}>,
      * }
      */
-    public function build(): array
+    public function build(?User $viewer = null): array
     {
         $surveys = $this->progressSummary->attach(
-            Survey::query()->with(['latestFasihImport', 'checkpoints'])->latest()->get()
+            Survey::query()
+                ->when($viewer, fn ($query) => $query->visibleTo($viewer))
+                ->with(['latestFasihImport', 'checkpoints'])->latest()->get()
         );
         $running = $surveys->where('status', 'Berjalan')->values();
         $knownDistricts = District::query()->whereNotNull('code')->pluck('code')->flip();
@@ -68,7 +71,7 @@ class SurveyDashboardOverview
                 ->all(),
             'runningTotals' => $this->report->totals($allRows),
             'districtSummary' => $this->districtSummary($mappedRows),
-            'dailyEntries' => $this->dailyEntries($today),
+            'dailyEntries' => $this->dailyEntries($today, $surveys->pluck('id')),
             'behindMitra' => $this->behindMitra($running),
         ];
     }
@@ -139,13 +142,15 @@ class SurveyDashboardOverview
      * Jumlah entri PAPI yang diselesaikan mitra per hari pada minggu berjalan, Senin sampai Minggu.
      * Hari yang belum tiba tetap ditampilkan dengan jumlah 0.
      *
+     * @param  Collection<int, int>  $surveyIds
      * @return Collection<int, array{date: Carbon, count: int}>
      */
-    private function dailyEntries(Carbon $today): Collection
+    private function dailyEntries(Carbon $today, Collection $surveyIds): Collection
     {
         $start = $today->copy()->startOfWeek(Carbon::MONDAY);
 
         $counts = SurveyEntry::query()
+            ->whereIn('survey_id', $surveyIds)
             ->where('entry_status', SurveyEntry::STATUS_SUBMITTED)
             ->where('submitted_at', '>=', $start->copy()->timezone(config('app.timezone')))
             ->pluck('submitted_at')

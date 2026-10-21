@@ -264,7 +264,7 @@ class DemoDataSeeder extends Seeder
      */
     private function seedCapiSurvey(?User $pegawai): void
     {
-        Survey::query()->updateOrCreate(
+        $survey = Survey::query()->updateOrCreate(
             ['title' => 'Sensus Ekonomi 2026'],
             [
                 'type' => Survey::TYPE_CAPI,
@@ -276,6 +276,10 @@ class DemoDataSeeder extends Seeder
                 'status' => 'Berjalan',
             ]
         );
+
+        if ($pegawai) {
+            $survey->pegawai()->syncWithoutDetaching([$pegawai->id]);
+        }
     }
 
     private function seedCheckpoints(Survey $survey): void

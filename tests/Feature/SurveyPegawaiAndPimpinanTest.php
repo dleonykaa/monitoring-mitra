@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\Survey;
 use App\Models\SurveyAssignment;
 use App\Models\SurveyEntry;
@@ -71,7 +72,7 @@ class SurveyPegawaiAndPimpinanTest extends TestCase
         $this->actingAs($admin)->get('/admin/surveys/'.$survey->id)->assertOk()->assertDontSee('Tugaskan');
     }
 
-    public function test_pegawai_sees_every_survey_with_own_surveys_marked_and_opened_by_default(): void
+    public function test_pegawai_only_sees_surveys_assigned_to_them(): void
     {
         $this->seed();
 
@@ -80,33 +81,171 @@ class SurveyPegawaiAndPimpinanTest extends TestCase
         $mine = $this->papiSurvey($admin, 'Survei Tanggung Jawab Saya', 'Berjalan');
         $other = $this->papiSurvey($admin, 'Survei Pegawai Lain', 'Berjalan');
         $mine->pegawai()->attach($pegawai->id);
+        $otherEntry = $this->openEntry($other, $this->user('mitra'));
 
         $this->actingAs($pegawai)->get('/pegawai/surveys')
             ->assertOk()
-            ->assertSee('aria-label="Filter penanggung jawab"', false)
             ->assertSee('Survei Tanggung Jawab Saya')
-            ->assertSee('Survei Pegawai Lain')
-            ->assertSee('data-mine="1"', false);
+            ->assertDontSee('Survei Pegawai Lain');
+        $this->actingAs($pegawai)->get('/pegawai/dashboard')
+            ->assertOk()
+            ->assertViewHas('surveys', fn ($surveys): bool => $surveys->pluck('id')->all() === [$mine->id]);
 
-        // Monitoring dan data entri langsung membuka survei miliknya walau bukan survei terbaru.
+        // Monitoring dan data entri hanya menawarkan survei miliknya, walau bukan survei terbaru.
         $this->actingAs($pegawai)->get('/pegawai/monitoring/progres')
             ->assertOk()
             ->assertViewHas('selectedSurvey', fn (?Survey $survey): bool => $survey?->is($mine) ?? false)
-            ->assertSee('Survei Tanggung Jawab Saya · PAPI · Survei saya');
-        $this->actingAs($pegawai)->get('/pegawai/entri-papi')
-            ->assertOk()
-            ->assertViewHas('survey', fn (?Survey $survey): bool => $survey?->is($mine) ?? false);
-
-        // Survei lain tetap bisa dibuka.
+            ->assertViewHas('surveys', fn ($surveys): bool => $surveys->pluck('id')->all() === [$mine->id]);
         $this->actingAs($pegawai)->get('/pegawai/monitoring/progres?survey='.$other->id)
             ->assertOk()
-            ->assertViewHas('selectedSurvey', fn (?Survey $survey): bool => $survey?->is($other) ?? false);
-        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$other->id)->assertOk();
+            ->assertViewHas('selectedSurvey', fn (?Survey $survey): bool => $survey?->is($mine) ?? false);
+        $this->actingAs($pegawai)->get('/pegawai/entri-papi?survey='.$other->id)
+            ->assertOk()
+            ->assertViewHas('survey', null);
 
-        // Pegawai tanpa penugasan tidak melihat filter "Survei saya".
+        // Survei lain tidak bisa dibuka langsung.
+        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$other->id)->assertNotFound();
+        $this->actingAs($pegawai)->get('/pegawai/entri-papi/'.$otherEntry->id)->assertNotFound();
+        $this->actingAs($pegawai)->get('/pegawai/surveys/'.$mine->id)->assertOk();
+
+        // Pegawai tanpa penugasan tidak melihat survei apa pun.
         $this->actingAs($this->user('pegawai_bps'))->get('/pegawai/surveys')
             ->assertOk()
-            ->assertDontSee('aria-label="Filter penanggung jawab"', false);
+            ->assertDontSee('Survei Tanggung Jawab Saya')
+            ->assertDontSee('Survei Pegawai Lain');
+
+        // Pimpinan tetap melihat seluruh survei.
+        $pimpinan = User::query()->where('email', 'pimpinan@bps.go.id')->firstOrFail();
+        $this->actingAs($pimpinan)->get('/pimpinan/surveys')
+            ->assertOk()
+            ->assertSee('Survei Tanggung Jawab Saya')
+            ->assertSee('Survei Pegawai Lain');
+        $this->actingAs($pimpinan)->get('/pimpinan/monitoring/progres')
+            ->assertOk()
+            ->assertViewHas('surveys', fn ($surveys): bool => $surveys->pluck('id')->contains($other->id));
+    }
+
+    public function test_admin_assigns_pegawai_while_creating_a_survey(): void
+    {
+        $this->seed();
+
+        $admin = User::query()->where('email', 'admin@bps.go.id')->firstOrFail();
+        $first = $this->user('pegawai_bps', 'Andi Pengawas');
+        $second = $this->user('pegawai_bps', 'Budi Pengawas');
+        $inactive = $this->user('pegawai_bps', 'Citra Nonaktif', active: false);
+
+        $this->actingAs($admin)->get('/admin/surveys/create')
+            ->assertOk()
+            ->assertSee('Pegawai penanggung jawab')
+            ->assertSee('name="pegawai_ids[]" value="'.$first->id.'"', false)
+            ->assertDontSee('Citra Nonaktif');
+
+        $payload = [
+            'type' => Survey::TYPE_PAPI,
+            'title' => 'Survei Dengan PML',
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addDays(10)->toDateString(),
+        ];
+
+        // Akun nonaktif dan bukan pegawai ditolak.
+        $this->actingAs($admin)->post('/admin/surveys', [...$payload, 'pegawai_ids' => [$inactive->id]])
+            ->assertSessionHasErrors('pegawai_ids.0');
+        $this->actingAs($admin)->post('/admin/surveys', [...$payload, 'pegawai_ids' => [$this->user('mitra')->id]])
+            ->assertSessionHasErrors('pegawai_ids.0');
+        $this->assertDatabaseMissing('surveys', ['title' => 'Survei Dengan PML']);
+
+        $this->actingAs($admin)->post('/admin/surveys', [...$payload, 'pegawai_ids' => [$first->id, $second->id]])
+            ->assertSessionHasNoErrors();
+
+        $survey = Survey::query()->where('title', 'Survei Dengan PML')->firstOrFail();
+        $this->assertEqualsCanonicalizing([$first->id, $second->id], $survey->pegawai()->pluck('users.id')->all());
+        foreach ([$first, $second] as $pegawai) {
+            $this->assertSame(PegawaiAssignedNotification::class, $pegawai->notifications()->sole()->type);
+        }
+        $this->assertSame(2, ActivityLog::query()->where('action', 'admin.survey.pegawai_assign')->count());
+
+        $this->actingAs($first)->get('/pegawai/surveys/'.$survey->id)->assertOk();
+
+        // Tanpa pilihan pegawai, survei tetap dibuat.
+        $this->actingAs($admin)->post('/admin/surveys', [...$payload, 'title' => 'Survei Tanpa PML'])
+            ->assertSessionHasNoErrors();
+        $this->assertFalse(Survey::query()->where('title', 'Survei Tanpa PML')->firstOrFail()->pegawai()->exists());
+    }
+
+    public function test_admin_imports_pegawai_from_template_by_email(): void
+    {
+        $this->seed();
+
+        $admin = User::query()->where('email', 'admin@bps.go.id')->firstOrFail();
+        $first = $this->user('pegawai_bps', 'Dewi Pengawas');
+        $second = $this->user('pegawai_bps', 'Eko Pengawas');
+        $survey = $this->papiSurvey($admin, 'Survei Impor PML', 'Berjalan');
+
+        $this->actingAs($admin)->get('/admin/surveys/pegawai/template')->assertOk()->assertDownload('template-pegawai-survei.xlsx');
+        $this->actingAs($admin)->get('/admin/surveys/'.$survey->id)
+            ->assertOk()
+            ->assertSee('/admin/surveys/'.$survey->id.'/pegawai/import', false)
+            ->assertSee('href="/templates/contoh-impor-pegawai-survei.xlsx"', false);
+
+        // Satu email salah membatalkan seluruh impor.
+        $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/pegawai/import', [
+            'pegawai_file' => $this->pegawaiCsv([$first->email, 'tidak-ada@bps.go.id', $this->user('mitra')->email]),
+        ])->assertSessionHasErrors('pegawai_file');
+        $this->assertFalse($survey->pegawai()->exists());
+        $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/pegawai/import', [
+            'pegawai_file' => UploadedFile::fake()->createWithContent('pegawai.csv', "Nama\nDewi\n"),
+        ])->assertSessionHasErrors('pegawai_file');
+
+        // Email tidak peka huruf besar, baris kosong dan duplikat dilewati.
+        $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/pegawai/import', [
+            'pegawai_file' => $this->pegawaiCsv([strtoupper($first->email), '', $first->email]),
+        ])->assertSessionHasNoErrors()->assertSessionHas('status', '1 pegawai ditugaskan dari file.');
+
+        $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/pegawai/import', [
+            'pegawai_file' => $this->pegawaiCsv([$first->email, $second->email]),
+        ])->assertSessionHasNoErrors()->assertSessionHas('status', '1 pegawai ditugaskan dari file. 1 pegawai sudah ditugaskan sebelumnya.');
+
+        $this->assertEqualsCanonicalizing([$first->id, $second->id], $survey->pegawai()->pluck('users.id')->all());
+        $this->assertSame(1, $first->notifications()->count());
+        $this->assertSame(1, $second->notifications()->count());
+
+        $this->actingAs($first)->post('/admin/surveys/'.$survey->id.'/pegawai/import', ['pegawai_file' => $this->pegawaiCsv([$first->email])])
+            ->assertForbidden();
+        $survey->update(['status' => 'Selesai']);
+        $this->actingAs($admin)->post('/admin/surveys/'.$survey->id.'/pegawai/import', ['pegawai_file' => $this->pegawaiCsv([$first->email])])
+            ->assertForbidden();
+    }
+
+    public function test_admin_creates_survey_with_pegawai_from_file_and_sample_file_is_importable(): void
+    {
+        $this->seed();
+
+        $admin = User::query()->where('email', 'admin@bps.go.id')->firstOrFail();
+        $checked = $this->user('pegawai_bps', 'Fajar Dicentang');
+        foreach (['pegawai2@bps.go.id', 'pegawai3@bps.go.id'] as $email) {
+            User::factory()->create(['email' => $email, 'is_active' => true])->assignRole('pegawai_bps');
+        }
+
+        $payload = [
+            'type' => Survey::TYPE_PAPI,
+            'title' => 'Survei PML Dari File',
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addDays(10)->toDateString(),
+            'pegawai_ids' => [$checked->id],
+        ];
+
+        $this->actingAs($admin)->post('/admin/surveys', [...$payload, 'pegawai_file' => $this->pegawaiCsv(['bukan-pegawai@bps.go.id'])])
+            ->assertSessionHasErrors('pegawai_file');
+        $this->assertDatabaseMissing('surveys', ['title' => 'Survei PML Dari File']);
+
+        $sample = new UploadedFile(public_path('templates/contoh-impor-pegawai-survei.xlsx'), 'contoh-impor-pegawai-survei.xlsx', null, null, true);
+        $this->actingAs($admin)->post('/admin/surveys', [...$payload, 'pegawai_file' => $sample])->assertSessionHasNoErrors();
+
+        $survey = Survey::query()->where('title', 'Survei PML Dari File')->firstOrFail();
+        $this->assertEqualsCanonicalizing(
+            ['pegawai@bps.go.id', 'pegawai2@bps.go.id', 'pegawai3@bps.go.id', $checked->email],
+            $survey->pegawai()->pluck('email')->all()
+        );
     }
 
     public function test_entry_notification_goes_to_admin_and_assigned_pegawai_only(): void
@@ -135,7 +274,7 @@ class SurveyPegawaiAndPimpinanTest extends TestCase
         $this->assertSame(0, $otherPegawai->notifications()->count());
         $this->assertSame(0, $pimpinan->notifications()->count());
 
-        // Survei tanpa penanggung jawab tetap memberi tahu seluruh pegawai.
+        // Survei tanpa penanggung jawab hanya memberi tahu admin, karena pegawai lain tidak dapat membukanya.
         $unassigned = $this->papiSurvey($admin, 'Survei Tanpa PML', 'Berjalan');
         $secondEntry = $this->openEntry($unassigned, $mitra);
         $this->actingAs($mitra)->put('/mitra/entries/'.$secondEntry->id, [
@@ -143,8 +282,9 @@ class SurveyPegawaiAndPimpinanTest extends TestCase
             'evidence_photo' => UploadedFile::fake()->image('bukti.jpg'),
         ])->assertSessionHasNoErrors();
 
-        $this->assertSame(1, $otherPegawai->notifications()->count());
-        $this->assertSame(2, $assigned->notifications()->count());
+        $this->assertSame(0, $otherPegawai->notifications()->count());
+        $this->assertSame(1, $assigned->notifications()->count());
+        $this->assertSame(2, $admin->notifications()->count());
         $this->assertSame(0, $pimpinan->notifications()->count());
     }
 
@@ -223,6 +363,14 @@ class SurveyPegawaiAndPimpinanTest extends TestCase
         $user->assignRole($role);
 
         return $user;
+    }
+
+    /**
+     * @param  list<string>  $emails
+     */
+    private function pegawaiCsv(array $emails): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent('pegawai.csv', "Email,Nama Pegawai (opsional)\n".implode("\n", array_map(fn (string $email): string => $email.',', $emails))."\n");
     }
 
     private function papiSurvey(User $admin, string $title, string $status): Survey

@@ -63,6 +63,7 @@ class FasihMonitoringTest extends TestCase
     public function test_pegawai_can_view_monitoring_without_import_controls(): void
     {
         $pegawai = User::query()->where('email', 'pegawai@bps.go.id')->firstOrFail();
+        $this->survey->pegawai()->attach($pegawai->id);
         $this->importRows([$this->csvLine('a@example.com', '3101020001000600', 10, 'APPROVED BY Pengawas:4 | OPEN:6')]);
 
         $this->actingAs($pegawai)->get('/pegawai/monitoring/progres?survey='.$this->survey->id)

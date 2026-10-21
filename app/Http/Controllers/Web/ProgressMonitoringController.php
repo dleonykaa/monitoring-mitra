@@ -11,6 +11,7 @@ use App\Models\FasihProgressRow;
 use App\Models\Survey;
 use App\Models\SurveyCheckpoint;
 use App\Models\SurveyEntry;
+use App\Models\User;
 use App\Services\FasihProgressImporter;
 use App\Services\FasihProgressReport;
 use App\Services\MitraCheckpointProgress;
@@ -43,8 +44,7 @@ class ProgressMonitoringController extends Controller
         $panel = $user->panel();
 
         return view('panel.monitoring-progres', [
-            'surveys' => $this->runningSurveys()->get(['id', 'title', 'type', 'status']),
-            'mySurveyIds' => $user->supervisedSurveys()->pluck('surveys.id')->all(),
+            'surveys' => $this->runningSurveys($user)->get(['id', 'title', 'type', 'status']),
             'canManage' => $user->hasRole('admin'),
             'basePath' => $panel['base'].'/monitoring/progres',
             'panelTitle' => $panel['panelTitle'],
@@ -132,11 +132,13 @@ class ProgressMonitoringController extends Controller
     /**
      * Monitoring hanya memantau survei yang sedang berjalan.
      *
+     * Survei berjalan yang boleh dipantau pengguna.
+     *
      * @return Builder<Survey>
      */
-    private function runningSurveys(): Builder
+    private function runningSurveys(User $user): Builder
     {
-        return Survey::query()->where('status', 'Berjalan')->latest();
+        return Survey::query()->visibleTo($user)->where('status', 'Berjalan')->latest();
     }
 
     /**
@@ -157,11 +159,10 @@ class ProgressMonitoringController extends Controller
             'minggu' => ['nullable', 'integer', 'min:0', 'max:520'],
         ]);
 
-        // Survei Draft dan yang sudah ditandai selesai tidak ikut dipantau; pilihan lain jatuh ke survei berjalan
-        // terbaru yang ditanggungjawabi pengguna, lalu survei berjalan terbaru.
-        $selectedSurvey = (isset($filters['survey']) ? $this->runningSurveys()->find($filters['survey']) : null)
-            ?? $this->runningSurveys()->whereHas('pegawai', fn (Builder $query) => $query->whereKey($request->user()->id))->first()
-            ?? $this->runningSurveys()->first();
+        // Survei Draft, yang sudah ditandai selesai, dan yang tidak ditugaskan ke pegawai tidak ikut dipantau;
+        // pilihan lain jatuh ke survei berjalan terbaru.
+        $selectedSurvey = (isset($filters['survey']) ? $this->runningSurveys($request->user())->find($filters['survey']) : null)
+            ?? $this->runningSurveys($request->user())->first();
 
         $imports = $selectedSurvey?->isCapi()
             ? $selectedSurvey->fasihImports()->with('user')->latest('id')->get()
