@@ -183,8 +183,9 @@
 <body>
 @php
     $role = auth()->user()?->getRoleNames()->first();
-    $prefix = match ($role) { 'admin' => 'admin', 'pegawai_bps' => 'pegawai', 'mitra' => 'mitra', default => '' };
-    $roleLabel = ['admin' => 'Administrator', 'pegawai_bps' => 'Pegawai BPS', 'mitra' => 'Mitra BPS'][$role] ?? ($role ?? 'Pengguna');
+    $rolePanel = \App\Models\User::PANELS[$role] ?? null;
+    $prefix = $rolePanel ? ltrim($rolePanel['base'], '/') : '';
+    $roleLabel = $rolePanel['label'] ?? ($role ?? 'Pengguna');
     $userInitials = collect(explode(' ', trim((string) auth()->user()?->name)))->filter()->take(2)->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))->implode('') ?: 'U';
 @endphp
 <div class="app">
@@ -252,8 +253,12 @@
                         if ($prefix === 'admin' && isset($data['url']) && str_starts_with($data['url'], '/admin/')) {
                             return $data['url'];
                         }
-                        if (in_array($prefix, ['admin', 'pegawai'], true)) {
-                            return isset($data['entry_id']) ? '/'.$prefix.'/entri-papi/'.$data['entry_id'] : '#';
+                        if (in_array($prefix, ['admin', 'pegawai', 'pimpinan'], true)) {
+                            return match (true) {
+                                isset($data['entry_id']) => '/'.$prefix.'/entri-papi/'.$data['entry_id'],
+                                isset($data['survey_id']) => '/'.$prefix.'/surveys/'.$data['survey_id'],
+                                default => '#',
+                            };
                         }
 
                         return $prefix === 'mitra' ? (isset($data['survey_id']) ? '/mitra/surveys/'.$data['survey_id'] : '/mitra/dashboard') : '#';
@@ -451,7 +456,8 @@ document.addEventListener('click', function(ev){
 // Isian tanggal: browser menampilkan <input type="date"> mengikuti bahasa perangkat (sering mm/dd/yyyy).
 // Agar selalu dd/mm/yyyy, isian yang terlihat adalah teks; input tanggal aslinya tetap menyimpan nilai
 // yyyy-mm-dd yang dikirim ke server dan dipakai untuk membuka kalender.
-document.querySelectorAll('input[type="date"]').forEach(function(native){
+const enhanceDateInput = function(native){
+    if (native.closest('.date-dmy')) return;
     const wrap = document.createElement('span');
     wrap.className = 'date-dmy';
     const text = document.createElement('input');
@@ -538,7 +544,17 @@ document.querySelectorAll('input[type="date"]').forEach(function(native){
     });
     native.form?.addEventListener('click', function(event){ if (event.target.closest('[type="submit"]')) validate(); }, true);
     showNative();
-});
+};
+document.querySelectorAll('input[type="date"]').forEach(enhanceDateInput);
+// Isian tanggal yang ditambahkan skrip halaman belakangan (mis. baris checkpoint) ikut berformat dd/mm/yyyy.
+new MutationObserver(function(mutations){
+    mutations.forEach(function(mutation){
+        mutation.addedNodes.forEach(function(node){
+            if (node.nodeType !== 1) return;
+            (node.matches('input[type="date"]') ? [node] : node.querySelectorAll('input[type="date"]')).forEach(enhanceDateInput);
+        });
+    });
+}).observe(document.body, {childList: true, subtree: true});
 
 // Tabel .stack tampil sebagai kartu di layar HP; setiap sel diberi label dari judul kolomnya.
 document.querySelectorAll('table.stack').forEach(function(table){

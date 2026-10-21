@@ -1,4 +1,4 @@
-{{-- Daftar survei bersama. Admin: $canManage = true, $base = '/admin'. Pegawai: lihat saja. --}}
+{{-- Daftar survei bersama. Admin: $canManage = true, $base = '/admin'. Pegawai & pimpinan: lihat saja; $mySurveyIds = survei yang ditanggungjawabi pegawai. --}}
 @extends('panel.layout', ['panelTitle' => $panelTitle, 'pageTitle' => 'Survei'])
 
 @section('menu')
@@ -12,6 +12,7 @@
     $statusBadge = ['Berjalan' => 'bdg-blue', 'Draft' => 'bdg-amber', 'Selesai' => 'bdg-green'];
     $statusCounts = collect(['Berjalan', 'Draft', 'Selesai'])->mapWithKeys(fn ($status) => [$status => $surveys->where('status', $status)->count()]);
     $defaultStatus = $statusCounts['Berjalan'] > 0 ? 'Berjalan' : 'all';
+    $mySurveyIds = $mySurveyIds ?? [];
     $today = today();
 @endphp
 
@@ -35,6 +36,12 @@
     <section class="pnl flush" aria-label="Daftar survei">
         <div class="pnl-h">
             <div style="display:flex;flex-wrap:wrap;gap:8px">
+                @if ($mySurveyIds !== [])
+                    <div class="seg" role="group" aria-label="Filter penanggung jawab" data-filter="owner">
+                        <button type="button" data-value="mine" aria-pressed="true">Survei saya <small>{{ count($mySurveyIds) }}</small></button>
+                        <button type="button" data-value="all" aria-pressed="false">Semua survei</button>
+                    </div>
+                @endif
                 <div class="seg" role="group" aria-label="Filter status" data-filter="status">
                     @foreach (['all' => 'Semua', 'Berjalan' => 'Berjalan', 'Draft' => 'Draft', 'Selesai' => 'Selesai'] as $value => $label)
                         <button type="button" data-value="{{ $value }}" aria-pressed="{{ $value === $defaultStatus ? 'true' : 'false' }}">{{ $label }} <small>{{ $value === 'all' ? $surveys->count() : $statusCounts[$value] }}</small></button>
@@ -79,13 +86,16 @@
                                     $daysLeft = (int) $today->diffInDays($survey->end_date, false);
                                     $isLocked = $survey->status === 'Selesai';
                                 @endphp
-                                <tr data-status="{{ $survey->status }}" data-type="{{ $survey->type }}" data-search="{{ strtolower($survey->title) }}">
+                                <tr data-status="{{ $survey->status }}" data-type="{{ $survey->type }}" data-mine="{{ in_array($survey->id, $mySurveyIds, true) ? '1' : '0' }}" data-search="{{ strtolower($survey->title) }}">
                                     <td style="max-width:360px">
                                         <a href="{{ $base }}/surveys/{{ $survey->id }}" style="text-decoration:none;color:inherit">
                                             <b style="display:block;font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $survey->title }}</b>
                                         </a>
                                         <span style="display:flex;gap:8px;align-items:center;margin-top:3px;font-size:12px;color:var(--muted)">
                                             <span class="tag">{{ $survey->typeLabel() }}</span>
+                                            @if (in_array($survey->id, $mySurveyIds, true))
+                                                <span class="bdg bdg-blue">Survei saya</span>
+                                            @endif
                                             {{ $survey->isCapi() ? 'Data FASIH' : $fmt($survey->assignments_count).' mitra' }}
                                         </span>
                                     </td>
@@ -134,7 +144,11 @@
     if (!table) return;
     const rows = [...table.querySelectorAll('tbody tr[data-status]')];
     const search = document.getElementById('surveySearch');
-    const state = { status: document.querySelector('[data-filter="status"] [aria-pressed="true"]').dataset.value, type: 'all' };
+    const state = {
+        status: document.querySelector('[data-filter="status"] [aria-pressed="true"]').dataset.value,
+        type: 'all',
+        owner: document.querySelector('[data-filter="owner"] [aria-pressed="true"]')?.dataset.value ?? 'all',
+    };
 
     const apply = () => {
         const term = search.value.trim().toLowerCase();
@@ -142,6 +156,7 @@
         rows.forEach((row) => {
             const match = (state.status === 'all' || row.dataset.status === state.status)
                 && (state.type === 'all' || row.dataset.type === state.type)
+                && (state.owner === 'all' || row.dataset.mine === '1')
                 && (!term || row.dataset.search.includes(term));
             row.hidden = !match;
             if (match) shown++;

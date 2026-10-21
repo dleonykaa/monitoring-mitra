@@ -3,6 +3,7 @@
 use App\Http\Controllers\Web\Admin\AdminDashboardController;
 use App\Http\Controllers\Web\Admin\MitraDirectoryController;
 use App\Http\Controllers\Web\Admin\SurveyManagementController;
+use App\Http\Controllers\Web\Admin\SurveyPegawaiController;
 use App\Http\Controllers\Web\Admin\UserManagementController;
 use App\Http\Controllers\Web\EvidencePhotoController;
 use App\Http\Controllers\Web\Mitra\MitraPanelController;
@@ -18,15 +19,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
 
+Route::view('/bandung', 'ui.bandung-planner')->name('bandung.planner');
+
 /**
  * Beranda panel sesuai peran. Akun tanpa peran tidak punya panel, jadi sesinya diakhiri.
  */
-$homeFor = fn (User $user): ?string => match ($user->getRoleNames()->first()) {
-    'admin' => '/admin/dashboard',
-    'pegawai_bps' => '/pegawai/dashboard',
-    'mitra' => '/mitra/dashboard',
-    default => null,
-};
+$homeFor = fn (User $user): ?string => ($panel = $user->panel()) ? $panel['base'].'/dashboard' : null;
 $noRoleMessage = 'Akun Anda belum memiliki peran. Hubungi admin untuk mengaktifkannya.';
 
 Route::get('/', function (Request $request) use ($homeFor, $noRoleMessage) {
@@ -143,6 +141,8 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/surveys/{survey}/checkpoints', [SurveyManagementController::class, 'checkpoints']);
         Route::post('/surveys/{survey}/checkpoints', [SurveyManagementController::class, 'storeCheckpoint']);
         Route::delete('/surveys/{survey}/checkpoints/{checkpoint}', [SurveyManagementController::class, 'deleteCheckpoint']);
+        Route::post('/surveys/{survey}/pegawai', [SurveyPegawaiController::class, 'store']);
+        Route::delete('/surveys/{survey}/pegawai/{user}', [SurveyPegawaiController::class, 'destroy'])->withTrashed();
         Route::post('/surveys/{survey}/finish-setup', [SurveyManagementController::class, 'finishSetup']);
         Route::post('/surveys/{survey}/status', [SurveyManagementController::class, 'setStatus']);
 
@@ -167,7 +167,10 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/profile', fn () => view('panel.profile', ['panelTitle' => 'Admin', 'menuView' => 'panel.admin.menu']));
     });
 
-    Route::prefix('pegawai')->middleware('role:pegawai_bps')->group(function (): void {
+    // Panel lihat saja yang sama untuk pegawai BPS dan pimpinan.
+    $viewOnlyPanel = function (string $role): void {
+        $panel = User::PANELS[$role];
+
         Route::get('/dashboard', [PegawaiPanelController::class, 'dashboard']);
         Route::get('/monitoring/progres', [ProgressMonitoringController::class, 'index']);
         Route::get('/monitoring/progres/export', [ProgressMonitoringController::class, 'export']);
@@ -176,13 +179,19 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/entri-papi', [PapiEntriesController::class, 'index']);
         Route::get('/entri-papi/export', [PapiEntriesController::class, 'export']);
         Route::get('/entri-papi/{entry}', [PapiEntriesController::class, 'show'])->whereNumber('entry');
+        Route::get('/profile', fn () => view('panel.profile', ['panelTitle' => $panel['panelTitle'], 'menuView' => $panel['menuView']]));
+    };
+
+    Route::prefix('pimpinan')->middleware('role:pimpinan')->group(fn () => $viewOnlyPanel('pimpinan'));
+
+    Route::prefix('pegawai')->middleware('role:pegawai_bps')->group(function () use ($viewOnlyPanel): void {
+        $viewOnlyPanel('pegawai_bps');
+
         Route::get('/surveys/{survey}/entries', fn (int $survey) => redirect('/pegawai/entri-papi?survey='.$survey));
         Route::get('/surveys/{survey}/entries/{entry}', fn (int $survey, int $entry) => redirect('/pegawai/entri-papi/'.$entry))->whereNumber('entry');
 
         // Notifikasi lama menaut ke riwayat update yang kini berada di data entri survei.
         Route::get('/updates/{entry}', fn (SurveyEntry $entry) => redirect('/pegawai/entri-papi/'.$entry->id));
-
-        Route::get('/profile', fn () => view('panel.profile', ['panelTitle' => 'Pegawai BPS', 'menuView' => 'panel.pegawai.menu']));
     });
 
     Route::prefix('mitra')->middleware('role:mitra')->group(function (): void {

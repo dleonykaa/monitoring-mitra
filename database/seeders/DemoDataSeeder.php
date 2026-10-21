@@ -113,6 +113,11 @@ class DemoDataSeeder extends Seeder
                 ]
             );
 
+            // Pegawai uji coba menjadi penanggung jawab survei unggulan.
+            if ($pegawai) {
+                $survey->pegawai()->syncWithoutDetaching([$pegawai->id]);
+            }
+
             $variables = collect();
             foreach ($data['vars'] as [$name, $type, $exampleFormat]) {
                 $variables->push(SurveyVariable::query()->updateOrCreate(

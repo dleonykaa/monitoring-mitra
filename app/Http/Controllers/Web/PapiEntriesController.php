@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Data Entri PAPI: isian mitra (identitas ruta, variabel, foto) per survei PAPI.
- * Dipakai admin dan pegawai (lihat saja), lengkap dengan filter, urutan, dan ekspor Excel/CSV.
+ * Dipakai admin, pegawai, dan pimpinan (lihat saja), lengkap dengan filter, urutan, dan ekspor Excel/CSV.
  */
 class PapiEntriesController extends Controller
 {
@@ -148,7 +148,11 @@ class PapiEntriesController extends Controller
             ->latest('id')
             ->get(['id', 'title', 'type', 'status', 'start_date', 'end_date']);
 
-        $survey = isset($data['survey']) ? $surveys->firstWhere('id', (int) $data['survey']) : $surveys->first();
+        // Tanpa pilihan, pegawai langsung melihat survei yang ia tanggungjawabi.
+        $mySurveyIds = $request->user()->supervisedSurveys()->pluck('surveys.id')->all();
+        $survey = isset($data['survey'])
+            ? $surveys->firstWhere('id', (int) $data['survey'])
+            : ($surveys->first(fn (Survey $item): bool => in_array($item->id, $mySurveyIds, true)) ?? $surveys->first());
         $survey?->load('variables');
 
         $sort = $data['sort'] ?? 'updated';
@@ -159,6 +163,7 @@ class PapiEntriesController extends Controller
 
         return [
             'surveys' => $surveys,
+            'mySurveyIds' => $mySurveyIds,
             'survey' => $survey,
             'filters' => [
                 'status' => $data['status'] ?? SurveyEntry::STATUS_SUBMITTED,
@@ -257,8 +262,8 @@ class PapiEntriesController extends Controller
      */
     private function panel(Request $request): array
     {
-        return $request->user()->hasRole('admin')
-            ? ['panelTitle' => 'Admin', 'menuView' => 'panel.admin.menu', 'base' => '/admin']
-            : ['panelTitle' => 'Pegawai BPS', 'menuView' => 'panel.pegawai.menu', 'base' => '/pegawai'];
+        $panel = $request->user()->panel();
+
+        return ['panelTitle' => $panel['panelTitle'], 'menuView' => $panel['menuView'], 'base' => $panel['base']];
     }
 }

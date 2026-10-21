@@ -119,6 +119,107 @@ class FasihMonitoringTest extends TestCase
             ->assertSeeInOrder(['Progres submit', '25,0%', 'dari 80 dokumen']);
     }
 
+    public function test_create_page_offers_optional_checkpoint_step_for_capi(): void
+    {
+        $this->actingAs($this->admin)->get('/admin/surveys/create')
+            ->assertOk()
+            ->assertSee('Lanjut ke checkpoint')
+            ->assertSee('Checkpoint <small>(opsional)</small>', false)
+            ->assertSee('Simpan dan impor data');
+    }
+
+    public function test_admin_creates_capi_survey_with_checkpoints_sorted_by_date(): void
+    {
+        $this->actingAs($this->admin)->post('/admin/surveys', [
+            'type' => Survey::TYPE_CAPI,
+            'title' => 'SE2026 Bercheckpoint',
+            'start_date' => '2026-09-01',
+            'end_date' => '2026-10-31',
+            'checkpoints' => [
+                ['date' => '2026-10-15', 'target' => 80],
+                ['date' => '2026-09-20', 'target' => 40],
+            ],
+            'file' => $this->csvFile([
+                $this->csvLine('a@example.com', '3101020001000600', 80, 'APPROVED BY Pengawas:20 | OPEN:60'),
+            ]),
+        ])->assertSessionHasNoErrors()->assertSessionHas('status', fn (string $status): bool => str_contains($status, '2 checkpoint ditambahkan.'));
+
+        $survey = Survey::query()->where('title', 'SE2026 Bercheckpoint')->sole();
+        $this->assertSame(
+            [['2026-09-20', 40], ['2026-10-15', 80]],
+            $survey->checkpoints->map(fn ($checkpoint) => [$checkpoint->checkpoint_date->toDateString(), $checkpoint->target_percentage])->all(),
+        );
+        $this->assertSame(1, $survey->fasihImports()->count());
+    }
+
+    public function test_capi_checkpoint_targets_must_increase_by_date(): void
+    {
+        $this->actingAs($this->admin)->from('/admin/surveys/create')->post('/admin/surveys', [
+            'type' => Survey::TYPE_CAPI,
+            'title' => 'SE2026 Target Turun',
+            'start_date' => '2026-09-01',
+            'end_date' => '2026-10-31',
+            'checkpoints' => [
+                ['date' => '2026-09-20', 'target' => 60],
+                ['date' => '2026-10-15', 'target' => 60],
+            ],
+            'file' => $this->csvFile([
+                $this->csvLine('a@example.com', '3101020001000600', 80, 'OPEN:80'),
+            ]),
+        ])->assertRedirect('/admin/surveys/create')->assertSessionHasErrors('checkpoints');
+
+        $this->assertFalse(Survey::query()->where('title', 'SE2026 Target Turun')->exists());
+        $this->assertSame(0, FasihImport::query()->count());
+    }
+
+    public function test_capi_checkpoint_must_be_unique_and_within_survey_period(): void
+    {
+        $this->actingAs($this->admin)->from('/admin/surveys/create')->post('/admin/surveys', [
+            'type' => Survey::TYPE_CAPI,
+            'title' => 'SE2026 Di Luar Periode',
+            'start_date' => '2026-09-01',
+            'end_date' => '2026-10-31',
+            'checkpoints' => [
+                ['date' => '2026-11-05', 'target' => 50],
+                ['date' => '2026-09-10', 'target' => 20],
+                ['date' => '2026-09-10', 'target' => 30],
+            ],
+            'file' => $this->csvFile([
+                $this->csvLine('a@example.com', '3101020001000600', 80, 'OPEN:80'),
+            ]),
+        ])->assertSessionHasErrors(['checkpoints.0.date', 'checkpoints.1.date', 'checkpoints.2.date']);
+
+        $this->assertFalse(Survey::query()->where('title', 'SE2026 Di Luar Periode')->exists());
+    }
+
+    public function test_capi_survey_can_be_created_without_checkpoints(): void
+    {
+        $this->actingAs($this->admin)->post('/admin/surveys', [
+            'type' => Survey::TYPE_CAPI,
+            'title' => 'SE2026 Tanpa Checkpoint',
+            'start_date' => '2026-09-01',
+            'end_date' => '2026-10-31',
+            'file' => $this->csvFile([
+                $this->csvLine('a@example.com', '3101020001000600', 80, 'OPEN:80'),
+            ]),
+        ])->assertSessionHasNoErrors()->assertSessionHas('status', fn (string $status): bool => ! str_contains($status, 'checkpoint'));
+
+        $this->assertSame(0, Survey::query()->where('title', 'SE2026 Tanpa Checkpoint')->sole()->checkpoints()->count());
+    }
+
+    public function test_papi_survey_ignores_checkpoints_sent_on_create(): void
+    {
+        $this->actingAs($this->admin)->post('/admin/surveys', [
+            'type' => Survey::TYPE_PAPI,
+            'title' => 'PAPI Abaikan Checkpoint',
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addMonth()->toDateString(),
+            'checkpoints' => [['date' => now()->addWeek()->toDateString(), 'target' => 50]],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(0, Survey::query()->where('title', 'PAPI Abaikan Checkpoint')->sole()->checkpoints()->count());
+    }
+
     public function test_capi_survey_requires_scrape_file(): void
     {
         $this->actingAs($this->admin)->from('/admin/surveys/create')->post('/admin/surveys', [

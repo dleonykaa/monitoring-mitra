@@ -15,11 +15,11 @@ use Spatie\Permission\Models\Role;
 class AdminDashboardController extends Controller
 {
     /**
-     * Sistem hanya mengenal tiga peran: admin, pegawai BPS, dan mitra.
+     * Sistem hanya mengenal empat peran: admin, pegawai BPS, pimpinan, dan mitra.
      *
      * @var list<string>
      */
-    private const ROLES = ['admin', 'pegawai_bps', 'mitra'];
+    private const ROLES = ['admin', 'pegawai_bps', 'pimpinan', 'mitra'];
 
     /**
      * Dashboard admin = ringkasan seluruh survei yang sama dengan dashboard pegawai.
@@ -64,6 +64,7 @@ class AdminDashboardController extends Controller
             'roleCounts' => [
                 'admin' => User::query()->role('admin')->count(),
                 'pegawai_bps' => User::query()->role('pegawai_bps')->count(),
+                'pimpinan' => User::query()->role('pimpinan')->count(),
                 'mitra' => User::query()->role('mitra')->count(),
                 'all' => User::query()->count(),
             ],
@@ -111,6 +112,11 @@ class AdminDashboardController extends Controller
             fn ($payload) => $payload->put('password', $data['password'])
         )->all());
         $user->syncRoles([$data['role']]);
+
+        // Penugasan penanggung jawab survei hanya berlaku selama akun berperan pegawai BPS.
+        if ($data['role'] !== 'pegawai_bps') {
+            $user->supervisedSurveys()->detach();
+        }
 
         $this->log($request, 'admin.user.update', 'Memperbarui user '.$user->email);
 

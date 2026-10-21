@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -121,9 +122,18 @@ class Survey extends Model
     {
         return $this->load([
             'variables',
+            'pegawai',
             'assignments' => fn ($query) => $query->with('mitra')->orderByDesc('current_progress')->orderByDesc('target'),
             'fasihImports' => fn ($query) => $query->with('user')->latest('id'),
         ])->loadCount(['entries as submitted_entries_count' => fn ($query) => $query->where('entry_status', SurveyEntry::STATUS_SUBMITTED)]);
+    }
+
+    /**
+     * Pegawai BPS penanggung jawab (PML) survei ini. Akun yang sudah dihapus tetap terbaca.
+     */
+    public function pegawai(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'survey_pegawai')->withTrashed()->withTimestamps()->orderBy('name');
     }
 
     public function variables(): HasMany

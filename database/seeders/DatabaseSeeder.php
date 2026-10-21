@@ -45,6 +45,12 @@ class DatabaseSeeder extends Seeder
         );
         $pegawai->assignRole('pegawai_bps');
 
+        $pimpinan = User::query()->updateOrCreate(
+            ['email' => 'pimpinan@bps.go.id'],
+            ['name' => 'Kepala BPS', 'phone' => '081200000003', 'password' => 'password123', 'is_active' => true]
+        );
+        $pimpinan->assignRole('pimpinan');
+
         // Akun mitra utama untuk login uji coba
         $mitra = User::query()->updateOrCreate(
             ['email' => 'mitra@bps.go.id'],

@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Foto bukti pencacahan disimpan di disk privat dan hanya disajikan lewat alamat ini:
- * admin dan pegawai boleh melihat semua foto, mitra hanya foto entrinya sendiri.
+ * admin, pegawai, dan pimpinan boleh melihat semua foto, mitra hanya foto entrinya sendiri.
  */
 class EvidencePhotoController extends Controller
 {
@@ -18,7 +18,7 @@ class EvidencePhotoController extends Controller
     {
         $user = $request->user();
         $ownsEntry = $entry->assignment()->where('mitra_id', $user->id)->exists();
-        abort_unless($user->hasAnyRole(['admin', 'pegawai_bps']) || $ownsEntry, 403);
+        abort_unless($user->hasAnyRole(['admin', 'pegawai_bps', 'pimpinan']) || $ownsEntry, 403);
 
         $disk = Storage::disk(SurveyEntry::PHOTO_DISK);
         abort_unless(filled($entry->evidence_photo_path) && $disk->exists($entry->evidence_photo_path), 404);

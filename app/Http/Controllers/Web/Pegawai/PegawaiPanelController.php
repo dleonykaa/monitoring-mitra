@@ -6,43 +6,47 @@ use App\Http\Controllers\Controller;
 use App\Models\Survey;
 use App\Services\SurveyDashboardOverview;
 use App\Services\SurveyProgressSummary;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
- * Panel pegawai bersifat lihat saja: dashboard, daftar survei, dan detail survei.
+ * Panel lihat saja untuk pegawai BPS dan pimpinan: dashboard, daftar survei, dan detail survei.
+ * Pegawai tetap melihat seluruh survei; survei yang ia tanggungjawabi ditandai "Survei saya".
  */
 class PegawaiPanelController extends Controller
 {
-    public function dashboard(SurveyDashboardOverview $overview): View
+    public function dashboard(Request $request, SurveyDashboardOverview $overview): View
     {
         return view('panel.dashboard', [
             ...$overview->build(),
-            'panelTitle' => 'Pegawai BPS',
-            'menuView' => 'panel.pegawai.menu',
-            'base' => '/pegawai',
-            'canManage' => false,
+            ...$this->panel($request),
         ]);
     }
 
-    public function surveys(SurveyProgressSummary $progressSummary): View
+    public function surveys(Request $request, SurveyProgressSummary $progressSummary): View
     {
         return view('panel.survey-index', [
             'surveys' => $progressSummary->attach(Survey::query()->withCount('assignments')->latest()->get()),
-            'panelTitle' => 'Pegawai BPS',
-            'menuView' => 'panel.pegawai.menu',
-            'base' => '/pegawai',
-            'canManage' => false,
+            'mySurveyIds' => $request->user()->supervisedSurveys()->pluck('surveys.id')->all(),
+            ...$this->panel($request),
         ]);
     }
 
-    public function showSurvey(Survey $survey): View
+    public function showSurvey(Request $request, Survey $survey): View
     {
         return view('panel.survey-show', [
             'survey' => $survey->loadDetail(),
-            'panelTitle' => 'Pegawai BPS',
-            'menuView' => 'panel.pegawai.menu',
-            'base' => '/pegawai',
-            'canManage' => false,
+            ...$this->panel($request),
         ]);
+    }
+
+    /**
+     * @return array{panelTitle: string, menuView: string, base: string, canManage: false}
+     */
+    private function panel(Request $request): array
+    {
+        $panel = $request->user()->panel();
+
+        return ['panelTitle' => $panel['panelTitle'], 'menuView' => $panel['menuView'], 'base' => $panel['base'], 'canManage' => false];
     }
 }

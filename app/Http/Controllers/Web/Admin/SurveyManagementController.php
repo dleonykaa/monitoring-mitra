@@ -63,13 +63,26 @@ class SurveyManagementController extends Controller
             'start_date' => $isCapi ? ['required', 'date'] : ['required', 'date', 'after_or_equal:today'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'file' => $isCapi ? ['required', 'file', 'mimes:csv,txt', 'max:10240'] : ['exclude'],
+            'checkpoints' => $isCapi ? ['nullable', 'array', 'max:10'] : ['exclude'],
+            'checkpoints.*.date' => $isCapi ? ['required', 'date', 'distinct', 'after_or_equal:start_date', 'before_or_equal:end_date'] : ['exclude'],
+            'checkpoints.*.target' => $isCapi ? ['required', 'integer', 'min:1', 'max:100'] : ['exclude'],
         ], [
             'title.unique' => 'Nama survei/sensus sudah dipakai. Gunakan nama lain.',
             'file.required' => 'Survei CAPI memerlukan file data scraping FASIH pertama.',
             'file.mimes' => 'File data scraping harus berformat CSV.',
+            'checkpoints.max' => 'Maksimal 10 checkpoint.',
+            'checkpoints.*.date.required' => 'Lengkapi tanggal setiap checkpoint.',
+            'checkpoints.*.date.distinct' => 'Setiap checkpoint harus memakai tanggal yang berbeda.',
+            'checkpoints.*.date.after_or_equal' => 'Tanggal checkpoint harus di dalam periode survei.',
+            'checkpoints.*.date.before_or_equal' => 'Tanggal checkpoint harus di dalam periode survei.',
+            'checkpoints.*.target.required' => 'Lengkapi target setiap checkpoint.',
+            'checkpoints.*.target.min' => 'Target checkpoint minimal 1%.',
+            'checkpoints.*.target.max' => 'Target checkpoint maksimal 100%.',
         ]);
 
-        $survey = DB::transaction(function () use ($request, $data, $isCapi, $importer): Survey {
+        $checkpoints = $this->sortNewCheckpoints($data['checkpoints'] ?? []);
+
+        $survey = DB::transaction(function () use ($request, $data, $isCapi, $checkpoints, $importer): Survey {
             // Total target PAPI dihitung dari alokasi mitra; CAPI dari total beban pada data FASIH.
             $survey = Survey::query()->create([
                 'type' => $data['type'],
@@ -83,6 +96,13 @@ class SurveyManagementController extends Controller
             ]);
 
             if ($isCapi) {
+                foreach ($checkpoints as $checkpoint) {
+                    $survey->checkpoints()->create([
+                        'checkpoint_date' => $checkpoint['date'],
+                        'target_percentage' => $checkpoint['target'],
+                    ]);
+                }
+
                 $importer->import($request->file('file'), $request->user(), $survey);
             }
 
@@ -97,8 +117,38 @@ class SurveyManagementController extends Controller
 
         return $isCapi
             ? redirect('/admin/monitoring/progres?survey='.$survey->id)->with('status', 'Survei CAPI dibuat dan data FASIH pertama berhasil diimpor.'
+                .(count($checkpoints) > 0 ? ' '.count($checkpoints).' checkpoint ditambahkan.' : '')
                 .($importer->skippedRows() > 0 ? " {$importer->skippedRows()} baris tanpa kecamatan terdaftar dilewati." : ''))
             : redirect('/admin/surveys/'.$survey->id.'/variables');
+    }
+
+    /**
+     * Checkpoint yang diisi saat membuat survei CAPI diurutkan per tanggal; seperti di halaman checkpoint,
+     * targetnya harus terus naik.
+     *
+     * @param  array<int, array{date: string, target: int|string}>  $checkpoints
+     * @return list<array{date: string, target: int}>
+     *
+     * @throws ValidationException
+     */
+    private function sortNewCheckpoints(array $checkpoints): array
+    {
+        $sorted = collect($checkpoints)
+            ->map(fn (array $checkpoint): array => ['date' => Carbon::parse($checkpoint['date'])->toDateString(), 'target' => (int) $checkpoint['target']])
+            ->sortBy('date')
+            ->values();
+
+        foreach ($sorted as $index => $checkpoint) {
+            $previous = $sorted->get($index - 1);
+
+            if ($previous && $checkpoint['target'] <= $previous['target']) {
+                throw ValidationException::withMessages([
+                    'checkpoints' => 'Target checkpoint harus naik mengikuti tanggal: checkpoint '.($index + 1).' harus lebih dari '.$previous['target'].'%.',
+                ]);
+            }
+        }
+
+        return $sorted->all();
     }
 
     public function show(Survey $survey): View

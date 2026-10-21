@@ -27,7 +27,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Monitoring progres per survei. Survei CAPI membaca snapshot import FASIH, survei PAPI membaca
- * alokasi dan entri mitra. Admin dapat mengimpor/menghapus data FASIH; pegawai hanya melihat.
+ * alokasi dan entri mitra. Admin dapat mengimpor/menghapus data FASIH; pegawai dan pimpinan hanya melihat.
  */
 class ProgressMonitoringController extends Controller
 {
@@ -39,14 +39,16 @@ class ProgressMonitoringController extends Controller
 
     public function index(Request $request): View
     {
-        $isAdmin = $request->user()->hasRole('admin');
+        $user = $request->user();
+        $panel = $user->panel();
 
         return view('panel.monitoring-progres', [
             'surveys' => $this->runningSurveys()->get(['id', 'title', 'type', 'status']),
-            'canManage' => $isAdmin,
-            'basePath' => $isAdmin ? '/admin/monitoring/progres' : '/pegawai/monitoring/progres',
-            'panelTitle' => $isAdmin ? 'Admin' : 'Pegawai BPS',
-            'menuView' => $isAdmin ? 'panel.admin.menu' : 'panel.pegawai.menu',
+            'mySurveyIds' => $user->supervisedSurveys()->pluck('surveys.id')->all(),
+            'canManage' => $user->hasRole('admin'),
+            'basePath' => $panel['base'].'/monitoring/progres',
+            'panelTitle' => $panel['panelTitle'],
+            'menuView' => $panel['menuView'],
             ...$this->buildReport($request),
         ]);
     }
@@ -155,8 +157,10 @@ class ProgressMonitoringController extends Controller
             'minggu' => ['nullable', 'integer', 'min:0', 'max:520'],
         ]);
 
-        // Survei Draft dan yang sudah ditandai selesai tidak ikut dipantau; pilihan lain jatuh ke survei berjalan terbaru.
+        // Survei Draft dan yang sudah ditandai selesai tidak ikut dipantau; pilihan lain jatuh ke survei berjalan
+        // terbaru yang ditanggungjawabi pengguna, lalu survei berjalan terbaru.
         $selectedSurvey = (isset($filters['survey']) ? $this->runningSurveys()->find($filters['survey']) : null)
+            ?? $this->runningSurveys()->whereHas('pegawai', fn (Builder $query) => $query->whereKey($request->user()->id))->first()
             ?? $this->runningSurveys()->first();
 
         $imports = $selectedSurvey?->isCapi()

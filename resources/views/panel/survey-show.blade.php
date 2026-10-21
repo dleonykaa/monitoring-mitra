@@ -1,4 +1,4 @@
-{{-- Detail survei bersama. Admin: $canManage = true, $base = '/admin'. Pegawai: lihat saja, $base = '/pegawai'. --}}
+{{-- Detail survei bersama. Admin: $canManage = true, $base = '/admin'. Pegawai & pimpinan: lihat saja, $base = '/pegawai' atau '/pimpinan'. --}}
 @extends('panel.layout', ['panelTitle' => $panelTitle, 'pageTitle' => 'Detail Survei'])
 
 @section('menu')
@@ -126,6 +126,7 @@
 
     @if ($survey->isCapi())
         @include('panel.partials.survey-capi-summary', ['monitoringUrl' => $base.'/monitoring/progres?survey='.$survey->id])
+        @include('panel.partials.survey-pegawai')
     @else
         <div class="cols cols-side">
             <section class="pnl flush" aria-labelledby="mitraTitle">
@@ -187,6 +188,8 @@
             </section>
 
             <div class="ui">
+                @include('panel.partials.survey-pegawai')
+
                 <section class="pnl" aria-labelledby="variableTitle">
                     <div class="pnl-h">
                         <h2 id="variableTitle">Form isian <span class="num-chip">{{ $survey->variables->count() }}</span></h2>

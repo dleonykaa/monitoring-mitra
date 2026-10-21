@@ -5,9 +5,9 @@
 @endsection
 
 @php
-    $roleTabs = ['all' => 'Semua', 'admin' => 'Admin', 'pegawai_bps' => 'Pegawai BPS', 'mitra' => 'Mitra'];
-    $roleLabels = ['admin' => 'Admin', 'pegawai_bps' => 'Pegawai BPS', 'mitra' => 'Mitra'];
-    $roleTone = ['admin' => 'bdg-rose', 'pegawai_bps' => 'bdg-blue', 'mitra' => 'bdg-gray'];
+    $roleTabs = ['all' => 'Semua', 'admin' => 'Admin', 'pegawai_bps' => 'Pegawai BPS', 'pimpinan' => 'Pimpinan', 'mitra' => 'Mitra'];
+    $roleLabels = ['admin' => 'Admin', 'pegawai_bps' => 'Pegawai BPS', 'pimpinan' => 'Pimpinan', 'mitra' => 'Mitra'];
+    $roleTone = ['admin' => 'bdg-rose', 'pegawai_bps' => 'bdg-blue', 'pimpinan' => 'bdg-amber', 'mitra' => 'bdg-gray'];
     $addLabel = $selectedRole === 'all' ? null : $roleTabs[$selectedRole];
 @endphp
 

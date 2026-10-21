@@ -11,7 +11,7 @@
 @php
     $user = auth()->user();
     $roleName = $user->getRoleNames()->first();
-    $roleLabel = ['admin' => 'Administrator', 'pegawai_bps' => 'Pegawai BPS', 'mitra' => 'Mitra BPS'][$roleName] ?? ($roleName ?? 'Pengguna');
+    $roleLabel = \App\Models\User::PANELS[$roleName]['label'] ?? ($roleName ?? 'Pengguna');
     $initials = collect(preg_split('/\s+/', trim($user->name)))->take(2)->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))->join('');
     $passwordFields = [
         ['name' => 'current_password', 'label' => 'Kata sandi saat ini', 'autocomplete' => 'current-password', 'minlength' => null],
