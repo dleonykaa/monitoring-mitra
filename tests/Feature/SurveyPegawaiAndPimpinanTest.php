@@ -137,7 +137,9 @@ class SurveyPegawaiAndPimpinanTest extends TestCase
         $this->actingAs($admin)->get('/admin/surveys/create')
             ->assertOk()
             ->assertSee('Pegawai penanggung jawab')
-            ->assertSee('name="pegawai_ids[]" value="'.$first->id.'"', false)
+            ->assertSee('id="pegawaiSearch"', false)
+            ->assertSee('role="option" data-id="'.$first->id.'"', false)
+            ->assertDontSee('type="checkbox" name="pegawai_ids[]"', false)
             ->assertDontSee('Citra Nonaktif');
 
         $payload = [

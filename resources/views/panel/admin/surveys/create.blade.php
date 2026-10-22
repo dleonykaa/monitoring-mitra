@@ -65,13 +65,30 @@
                             <p style="margin:0;font-size:12.5px;color:var(--muted)">Belum ada akun pegawai BPS aktif. Tambahkan di Manajemen Pengguna.</p>
                         @else
                             @php $oldPegawaiIds = collect(old('pegawai_ids', []))->map(fn ($id) => (int) $id)->all(); @endphp
-                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 14px;max-height:220px;overflow:auto;padding:10px 12px;border:1px solid var(--line);border-radius:8px">
-                                @foreach ($pegawaiOptions as $pegawai)
-                                    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;min-width:0">
-                                        <input type="checkbox" name="pegawai_ids[]" value="{{ $pegawai->id }}" @checked(in_array($pegawai->id, $oldPegawaiIds, true)) style="margin-top:3px;accent-color:var(--brand)">
-                                        <span style="min-width:0"><b style="display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $pegawai->name }}</b><small style="color:var(--muted);font-size:11.5px">{{ $pegawai->email }}</small></span>
-                                    </label>
-                                @endforeach
+                            {{-- Dropdown cari seperti pemilih mitra di alokasi; pegawai yang dipilih tampil sebagai chip berisi input pegawai_ids[]. --}}
+                            <div class="fld" id="pegawaiPicker">
+                                <label for="pegawaiSearch" class="sr-only">Cari pegawai</label>
+                                <div style="position:relative">
+                                <input type="search" id="pegawaiSearch" placeholder="Cari dan pilih pegawai (nama atau email)" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pegawaiResults">
+                                <div id="pegawaiResults" class="mitra-results" role="listbox" aria-multiselectable="true" hidden>
+                                    @foreach ($pegawaiOptions as $pegawai)
+                                        <button type="button" class="mitra-result" role="option" data-id="{{ $pegawai->id }}" data-name="{{ $pegawai->name }}" data-email="{{ $pegawai->email }}" data-search="{{ strtolower($pegawai->name.' '.$pegawai->email) }}" hidden>
+                                            <b style="display:block;font-weight:600">{{ $pegawai->name }}</b><small style="color:var(--muted);font-size:11.5px">{{ $pegawai->email }}</small>
+                                        </button>
+                                    @endforeach
+                                    <p id="pegawaiNoMatch" class="hint" style="margin:0;padding:9px 12px" hidden>Tidak ada pegawai yang cocok.</p>
+                                </div>
+                                </div>
+                                <div id="selectedPegawai" class="peg-chips" aria-live="polite">
+                                    @foreach ($pegawaiOptions->whereIn('id', $oldPegawaiIds) as $pegawai)
+                                        <span class="peg-chip" data-id="{{ $pegawai->id }}">
+                                            <input type="hidden" name="pegawai_ids[]" value="{{ $pegawai->id }}">
+                                            <span>{{ $pegawai->name }}</span>
+                                            <button type="button" aria-label="Hapus {{ $pegawai->name }}" title="Hapus">&times;</button>
+                                        </span>
+                                    @endforeach
+                                </div>
+                                <span id="pegawaiEmpty" class="hint" @if (count($oldPegawaiIds) > 0) hidden @endif>Belum ada pegawai dipilih.</span>
                             </div>
                         @endif
                         @error('pegawai_ids.*')
@@ -82,7 +99,7 @@
                             <input type="file" name="pegawai_file" accept=".xlsx,.xls,.csv">
                         </label>
                         <span class="hint" style="font-size:12px;color:var(--muted)">
-                            <a href="/admin/surveys/pegawai/template">Unduh template</a> · <a href="/templates/contoh-impor-pegawai-survei.xlsx" download>Contoh file</a>. Pegawai dari file digabung dengan yang dicentang.
+                            <a href="/admin/surveys/pegawai/template">Unduh template</a> · <a href="/templates/contoh-impor-pegawai-survei.xlsx" download>Contoh file</a>. Pegawai dari file digabung dengan yang dipilih.
                         </span>
                         @error('pegawai_file')
                             <p style="margin:0;font-size:12px;color:var(--t-rose-fg)">{{ $message }}</p>
@@ -164,8 +181,108 @@
 </div>
 @endsection
 
+@push('head')
+<style>
+    .mitra-results{position:absolute;z-index:5;top:calc(100% + 4px);right:0;left:0;display:grid;max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:var(--card);box-shadow:0 12px 28px rgba(15,39,71,.16);padding:4px}
+    .mitra-result{all:unset;box-sizing:border-box;padding:8px 12px;border-radius:7px;font-size:13px;color:var(--text);cursor:pointer}
+    .mitra-result:hover,.mitra-result:focus-visible{background:var(--row-hover);color:var(--brand)}
+    .peg-chips{display:flex;flex-wrap:wrap;gap:6px}
+    .peg-chips:empty{display:none}
+    .peg-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 4px 3px 10px;border-radius:999px;background:var(--row-hover);color:var(--brand-dark);font-size:12.5px;font-weight:600}
+    .peg-chip button{all:unset;cursor:pointer;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:15px;line-height:1;color:var(--muted)}
+    .peg-chip button:hover,.peg-chip button:focus-visible{background:var(--line);color:var(--text)}
+</style>
+@endpush
+
 @push('scripts')
 <script>
+// Dropdown cari pegawai penanggung jawab (boleh lebih dari satu).
+(function () {
+    const search = document.getElementById('pegawaiSearch');
+    if (!search) return;
+    const results = document.getElementById('pegawaiResults');
+    const chips = document.getElementById('selectedPegawai');
+    const empty = document.getElementById('pegawaiEmpty');
+    const noMatch = document.getElementById('pegawaiNoMatch');
+    const options = [...results.querySelectorAll('.mitra-result')];
+    const selectedIds = () => [...chips.querySelectorAll('[data-id]')].map((chip) => chip.dataset.id);
+
+    function showResults() {
+        const keyword = search.value.trim().toLowerCase();
+        const chosen = selectedIds();
+        let shown = 0;
+        options.forEach((option) => {
+            option.hidden = chosen.includes(option.dataset.id) || !option.dataset.search.includes(keyword);
+            if (!option.hidden) shown++;
+        });
+        noMatch.hidden = shown > 0;
+        results.hidden = false;
+        search.setAttribute('aria-expanded', 'true');
+    }
+
+    function hideResults() {
+        results.hidden = true;
+        search.setAttribute('aria-expanded', 'false');
+    }
+
+    function addChip(option) {
+        const chip = document.createElement('span');
+        chip.className = 'peg-chip';
+        chip.dataset.id = option.dataset.id;
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'pegawai_ids[]';
+        input.value = option.dataset.id;
+        const label = document.createElement('span');
+        label.textContent = option.dataset.name;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.innerHTML = '&times;';
+        remove.title = 'Hapus';
+        remove.setAttribute('aria-label', 'Hapus ' + option.dataset.name);
+        chip.append(input, label, remove);
+        chips.appendChild(chip);
+        empty.hidden = true;
+    }
+
+    search.addEventListener('focus', showResults);
+    search.addEventListener('input', showResults);
+    search.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { hideResults(); return; }
+        if (event.key === 'ArrowDown') { event.preventDefault(); options.find((option) => !option.hidden)?.focus(); return; }
+        // Enter memilih hasil teratas, bukan mengirim formulir.
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            options.find((option) => !option.hidden)?.click();
+        }
+    });
+    results.addEventListener('keydown', (event) => {
+        const visible = options.filter((option) => !option.hidden);
+        const index = visible.indexOf(document.activeElement);
+        if (event.key === 'ArrowDown') { event.preventDefault(); visible[index + 1]?.focus(); }
+        if (event.key === 'ArrowUp') { event.preventDefault(); (visible[index - 1] || search).focus(); }
+        if (event.key === 'Escape') { hideResults(); search.focus(); }
+    });
+    results.addEventListener('click', (event) => {
+        const option = event.target.closest('.mitra-result');
+        if (!option) return;
+        addChip(option);
+        search.value = '';
+        showResults();
+        search.focus();
+    });
+    chips.addEventListener('click', (event) => {
+        const button = event.target.closest('button');
+        if (!button) return;
+        button.closest('.peg-chip').remove();
+        empty.hidden = selectedIds().length > 0;
+        if (!results.hidden) showResults();
+    });
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('#pegawaiPicker')) hideResults();
+    });
+})();
+
 (function () {
     const form = document.getElementById('surveyForm');
     const infoStep = document.getElementById('infoStep');
